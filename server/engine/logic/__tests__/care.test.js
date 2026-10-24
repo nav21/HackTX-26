@@ -212,6 +212,23 @@ describe('careTick', () => {
     assert.deepEqual(tick(state, '07:30'), []);
   });
 
+  test('owner copy names the person when the owner set the box up for someone else', () => {
+    const state = { doses: [], events: [] };
+    const named = { ...device, person_is_owner: false };
+    const go = (local) => {
+      const out = careTick({ device: { ...named, led: state.led }, schedules: [s8, s20], doses: state.doses, events: state.events, now: at(`${MON}T${local}`), timezone: CHI });
+      apply(state, out);
+      return out;
+    };
+    go('07:00');
+    const r = pick(go('08:00'), 'notify')[0];
+    assert.equal(r.title, "Time for Grandma's 8 AM meds");
+    assert.equal(r.body, 'Morning meds · open the box by 8:30 AM');
+    const owner = pick(go('08:30'), 'notify').find((n) => n.to[0] === 'owner');
+    assert.equal(owner.title, 'Grandma missed her 8 AM meds');
+    assert.match(owner.body, /if Grandma took them$/);
+  });
+
   test('weekday filtering uses the local date (Fri 10 PM Chicago = Sat 03:00 UTC)', () => {
     const weekdays = { ...s8, days: [1, 2, 3, 4, 5] };
     const out = careTick({ device, schedules: [weekdays], doses: [], events: [], now: new Date('2026-10-24T03:00:00Z'), timezone: CHI });
