@@ -1,10 +1,12 @@
 /**
  * Rules engine (SPEC §6). The device only reports raw facts; this decides what they mean.
+ * Decisions live in engine/logic (pure, tested); the mode files load rows, call logic, and
+ * execute the returned intents with engine/execute.js.
  *
  * Entry points (called by routes / the scheduler):
  *   handleEvent(device, event)        after a raw `opened`/`closed` event is appended (claimed devices only)
- *   tick(now)                         every 15 s from scheduler.js: shared rules + each mode's tick
- *   onDeviceUpdated(before, after)    after PATCH /devices/:id (mode switch, arm/disarm)
+ *   tick(now)                         every 15 s from scheduler.js (only the scheduler-lease holder runs it)
+ *   onDeviceUpdated(before, after)    after PATCH /devices/:id (mode switch, arm/disarm, config)
  *   markSeen(device, at?)             any sign of life (device ingest, simulator); emits `online`
  *   resetLed(device, now?)            sets the LED to what the current mode says it should be
  *
@@ -12,32 +14,38 @@
  *   handleEvent(device, event): Promise<void>
  *       device = full `devices` row (snake_case; lid_state already updated)
  *       event  = Event DTO (API.md): { id, device_id, type: 'opened'|'closed', source, seq, occurred_at, payload, hash }
- *   tick(now: Date, devices: DeviceRow[]): Promise<void>
- *       devices = all claimed devices currently in this mode. Must be idempotent (runs every 15 s,
- *       possibly on several instances): guard with dose_instances unique (schedule_id, date), status, event types.
+ *       AI work is started in the background so the bridge/simulator request returns quickly.
+ *   tick(now: Date, devices: DeviceRow[], { forEach }): Promise<void>
+ *       devices = all claimed devices currently in this mode; forEach(devices, fn) runs fn per device
+ *       under the device lock with errors isolated. Must be idempotent (dose_instances unique
+ *       (schedule_id, date), statuses, event types, conditional updates).
  *   ledFor(device, now?: Date): Promise<Led>
- *       what the LED should show right now for this mode (used on mode switch, arm/disarm, claim).
+ *       what the LED should show right now for this mode (mode switch, claim, schedule edits).
+ *   care.js also: generateDailySummary, manualTaken, onSchedulesChanged · security.js: onArmedChanged
  *
- * Helpers for mode logic:
- *   events.js  appendEvent({ deviceId, type, source='server', payload }) → Event DTO
- *   notify.js  notify({ userIds, deviceId, kind, title, body, urgent }), ownerIds/caregiverIds/memberIds
- *   led.js     setLed(device, led) (no-op if unchanged), queueCommand(deviceId, 'CAL')
- *   lib/time.js  device-local dates/times (luxon)
+ * Helpers:
+ *   execute.js   execute(device, intents, { ai: 'await'|'background', ctx }) runs logic intents
+ *   events.js    appendEvent({ deviceId, type, source='server', payload }) → Event DTO
+ *   notify.js    notify({ userIds, deviceId, kind, title, body, urgent })
+ *   led.js       setLed(device, led) (no-op if unchanged), queueCommand(deviceId, 'CAL')
  * All times are interpreted in device.timezone.
  */
+import { hostname } from 'node:os';
+import { randomBytes } from 'node:crypto';
 import { supabase } from '../supabase.js';
 import { must } from '../lib/errors.js';
 import { appendEvent } from './events.js';
 import { notify, ownerIds } from './notify.js';
 import { setLed } from './led.js';
+import { OFFLINE_AFTER_MS } from './logic/index.js';
 import * as care from './care.js';
 import * as habit from './habit.js';
 import * as security from './security.js';
 
+export { OFFLINE_AFTER_MS };
 export const modes = { care, habit, security };
-export const OFFLINE_AFTER_MS = 60_000;
 
-// Serializes work per device inside this process (ingest batches, simulator clicks).
+// Serializes work per device inside this process (ingest batches, simulator clicks, ticks).
 const locks = new Map();
 export function withDeviceLock(deviceId, fn) {
   const prev = locks.get(deviceId) ?? Promise.resolve();
@@ -64,9 +72,11 @@ export async function onDeviceUpdated(before, after) {
     await appendEvent({ deviceId: after.id, type: 'mode_changed', payload: { from: before.mode, to: after.mode } });
   }
   if (before.armed !== after.armed) {
-    await appendEvent({ deviceId: after.id, type: after.armed ? 'armed' : 'disarmed' });
+    if (after.mode === 'security') await security.onArmedChanged(after);
+    else await appendEvent({ deviceId: after.id, type: after.armed ? 'armed' : 'disarmed' });
   }
-  if (before.mode !== after.mode || before.armed !== after.armed) await resetLed(after);
+  // Mode, silent, reminder time... any config can change the LED; setLed is a no-op if it didn't.
+  await resetLed(after);
 }
 
 /** Bumps last_seen_at; if the device was marked offline, clears that and logs `online`. */
@@ -110,8 +120,36 @@ async function detectOffline(now, devices) {
   }
 }
 
-/** One scheduler pass. Errors in one rule/mode don't stop the others. */
-export async function tick(now = new Date()) {
+// ---- scheduler lease: only one process (of all servers on this DB) ticks at a time ----------
+
+const LEASE_TTL_S = 45;
+const holder = `${hostname()}:${process.pid}:${randomBytes(3).toString('hex')}`;
+let wasLeader = null;
+
+async function holdsLease() {
+  const { data, error } = await supabase.rpc('claim_scheduler_lease', { p_holder: holder, p_ttl_seconds: LEASE_TTL_S });
+  if (error) {
+    console.error('[scheduler] lease check failed:', error.message);
+    return false;
+  }
+  if (data !== wasLeader) console.log(`[scheduler] ${data ? 'holding the tick lease' : 'another server holds the tick lease'} (${holder})`);
+  wasLeader = data;
+  return data === true;
+}
+
+async function forEach(devices, fn) {
+  for (const device of devices) {
+    try {
+      await withDeviceLock(device.id, () => fn(device));
+    } catch (err) {
+      console.error(`[engine] tick failed for ${device.id} (${device.mode}):`, err);
+    }
+  }
+}
+
+/** One scheduler pass. Errors in one rule/mode/device don't stop the others. */
+export async function tick(now = new Date(), { force = false } = {}) {
+  if (!force && !(await holdsLease())) return false;
   const devices = must(await supabase.from('devices').select('*').not('claimed_at', 'is', null));
 
   try {
@@ -122,9 +160,10 @@ export async function tick(now = new Date()) {
 
   for (const [name, mode] of Object.entries(modes)) {
     try {
-      await mode.tick(now, devices.filter((d) => d.mode === name));
+      await mode.tick(now, devices.filter((d) => d.mode === name), { forEach });
     } catch (err) {
       console.error(`[engine] ${name}.tick failed:`, err.message);
     }
   }
+  return true;
 }

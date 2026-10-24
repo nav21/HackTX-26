@@ -6,11 +6,13 @@
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js",
-    "test": "node --test \"test/*.test.js\"",
+    "test": "node --test \"test/*.test.js\" \"engine/logic/__tests__/*.test.js\" \"ai/features/__tests__/*.test.js\"",
     "db:migrate": "node scripts/migrate.js",
     "create-device": "node scripts/create-device.js",
     "verify-chain": "node scripts/verify-chain.js",
-    "ai:test": "node ai/test.js"
+    "ai:test": "node ai/test.js",
+    "test:integration": "node scripts/integration-test.js",
+    "test:routes": "node scripts/route-test.js"
   },
   "keywords": [],
   "author": "",

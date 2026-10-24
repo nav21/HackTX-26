@@ -5,6 +5,8 @@ import meRouter from './me.js';
 import devicesRouter from './devices.js';
 import notificationsRouter from './notifications.js';
 import deviceRouter from './device.js';
+import groupsRouter from './groups.js';
+import demoRouter from './demo.js';
 
 const router = Router();
 
@@ -31,6 +33,8 @@ router.use('/me', meRouter);
 router.use('/devices', devicesRouter);
 router.use('/notifications', notificationsRouter);
 router.use('/device', deviceRouter);
+router.use('/groups', groupsRouter);
+if (process.env.DEMO_MODE === 'true') router.use('/demo', demoRouter);
 router.use('/ai', aiRouter);
 
 export default router;

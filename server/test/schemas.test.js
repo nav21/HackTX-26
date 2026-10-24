@@ -78,3 +78,28 @@ test('simulateBody', () => {
   assert.ok(ok(s.simulateBody, { type: 'HB' }));
   assert.ok(!ok(s.simulateBody, { type: 'BOOT' }));
 });
+
+test('schedulePatch / parseBody / dosesQuery / streakQuery / insightsQuery', () => {
+  assert.ok(ok(s.schedulePatch, {}));
+  assert.ok(ok(s.schedulePatch, { active: false, grace_min: 10 }));
+  assert.ok(!ok(s.schedulePatch, { days: [] }));
+  assert.ok(ok(s.parseBody, { text: '8 am daily' }));
+  assert.ok(!ok(s.parseBody, { text: '   ' }));
+  assert.ok(!ok(s.parseBody, { text: 'x'.repeat(501) }));
+  assert.ok(ok(s.dosesQuery, { from: '2026-10-01', to: '2026-10-14' }));
+  assert.ok(!ok(s.dosesQuery, { from: '2026-10-14', to: '2026-10-01' }));
+  assert.ok(!ok(s.dosesQuery, { from: '10/01/2026' }));
+  assert.deepEqual(s.streakQuery.parse({}), { days: 30 });
+  assert.ok(!ok(s.streakQuery, { days: '0' }));
+  assert.deepEqual(s.insightsQuery.parse({ kind: 'nudge' }), { kind: 'nudge', limit: 10 });
+  assert.ok(!ok(s.insightsQuery, { kind: 'poem' }));
+});
+
+test('groups + habit device config', () => {
+  assert.deepEqual(s.joinGroup.parse({ invite_code: ' ab3k9z ' }), { invite_code: 'AB3K9Z' });
+  assert.ok(!ok(s.joinGroup, { invite_code: 'no!' }));
+  assert.ok(!ok(s.createGroup, { name: '' }));
+  assert.ok(ok(s.patchDevice, { reminder_time: '07:30', habit_label: 'creatine', habit_action: 'took creatine' }));
+  assert.ok(ok(s.patchDevice, { reminder_time: null }));
+  assert.ok(!ok(s.patchDevice, { reminder_time: '7:30' }));
+});

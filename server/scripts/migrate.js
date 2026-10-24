@@ -39,7 +39,8 @@ async function summary() {
            has_function_privilege('authenticated', p.oid, 'execute') as authenticated
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname in
-      ('is_device_member', 'is_device_owner', 'is_group_member', 'append_event', 'handle_new_user', 'handle_user_email_change')
+      ('is_device_member', 'is_device_owner', 'is_group_member', 'append_event', 'claim_scheduler_lease',
+       'handle_new_user', 'handle_user_email_change')
     order by 1`);
   console.log('Function EXECUTE privileges:');
   console.table(fns.rows);

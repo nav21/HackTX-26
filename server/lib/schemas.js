@@ -40,6 +40,9 @@ export const patchDevice = z.object({
   container_type: z.enum(CONTAINER_TYPES).optional(),
   icon: z.string().trim().min(1).max(40).nullable().optional(),
   timezone: timezone.optional(),
+  reminder_time: hhmm.nullable().optional(), // habit: daily nudge time (device-local)
+  habit_label: z.string().trim().min(1).max(40).nullable().optional(), // e.g. "creatine"
+  habit_action: z.string().trim().min(1).max(60).nullable().optional(), // e.g. "took creatine"
 });
 
 export const addMember = z.object({
@@ -67,6 +70,37 @@ export const scheduleBody = z.object({
   grace_min: z.number().int().min(0).max(720).optional(),
   escalate_after_min: z.number().int().min(0).max(720).optional(),
 });
+
+export const schedulePatch = scheduleBody.partial().extend({ active: z.boolean().optional() });
+
+export const scheduleParams = z.object({ id: uuid, sid: uuid });
+export const doseParams = z.object({ id: uuid, doseId: uuid });
+
+export const parseBody = z.object({ text: z.string().trim().min(1).max(500) });
+
+const isoDate = z.iso.date();
+export const dosesQuery = z
+  .object({ from: isoDate.optional(), to: isoDate.optional() })
+  .refine((q) => !q.from || !q.to || q.from <= q.to, { message: '`from` must be on or before `to`', path: ['from'] });
+
+export const streakQuery = z.object({ days: intFromQuery(1, 365, 30) });
+
+export const INSIGHT_KINDS = ['daily_summary', 'nudge', 'incident', 'schedule_parse', 'group_post'];
+export const insightsQuery = z.object({
+  kind: z.enum(INSIGHT_KINDS).optional(),
+  limit: intFromQuery(1, 100, 10),
+});
+
+export const createGroup = z.object({ name: z.string().trim().min(1).max(40) });
+export const joinGroup = z.object({
+  invite_code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9]{4,12}$/, 'Invalid invite code'),
+});
+
+export const deviceIdParams = z.object({ deviceId: uuid });
 
 export const deviceEventsBody = z.object({
   events: z

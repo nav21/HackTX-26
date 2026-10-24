@@ -117,6 +117,10 @@ alter table public.devices add column if not exists last_seq_at timestamptz; -- 
 alter table public.devices add column if not exists boot_count int not null default 0;
 alter table public.devices add column if not exists last_boot_at timestamptz;
 alter table public.devices add column if not exists offline_since timestamptz; -- set once when `offline` fires
+-- Habit config (SPEC §6.2): optional reminder time + microcopy ("Nav took creatine").
+alter table public.devices add column if not exists reminder_time time;
+alter table public.devices add column if not exists habit_label text;   -- defaults to the device name
+alter table public.devices add column if not exists habit_action text;  -- e.g. "took creatine"
 create index if not exists devices_group_idx on public.devices (group_id);
 alter table public.devices enable row level security;
 
@@ -183,7 +187,8 @@ create policy "devices_select_member" on public.devices for select to authentica
 
 revoke select on public.devices from anon, authenticated;
 grant select (id, name, mode, container_type, icon, armed, silent, tone, timezone, claimed_at,
-              last_seen_at, lid_state, group_id, created_at, led, last_seq, boot_count, offline_since)
+              last_seen_at, lid_state, group_id, created_at, led, last_seq, boot_count, offline_since,
+              reminder_time, habit_label, habit_action)
   on public.devices to authenticated;
 
 drop policy if exists "device_members_select" on public.device_members;
@@ -423,6 +428,42 @@ create table if not exists public.device_commands (
 create index if not exists device_commands_pending_idx on public.device_commands (device_id, id) where delivered_at is null;
 alter table public.device_commands enable row level security;
 revoke all on public.device_commands from anon, authenticated;
+
+
+-- -------------------------------------------------------------
+-- scheduler_lease: every server on this DB runs the 15 s scheduler; only the lease holder ticks.
+-- (A row lease instead of pg_try_advisory_lock: PostgREST pools connections, so session locks would leak.)
+-- -------------------------------------------------------------
+create table if not exists public.scheduler_lease (
+  id         int primary key default 1 check (id = 1),
+  holder     text not null,
+  expires_at timestamptz not null
+);
+alter table public.scheduler_lease enable row level security;
+revoke all on public.scheduler_lease from anon, authenticated;
+
+-- Take or renew the lease. → true if p_holder holds it for the next p_ttl_seconds.
+create or replace function public.claim_scheduler_lease(p_holder text, p_ttl_seconds int)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_holder text;
+begin
+  insert into public.scheduler_lease (id, holder, expires_at)
+  values (1, p_holder, now() + make_interval(secs => p_ttl_seconds))
+  on conflict (id) do update
+    set holder = excluded.holder, expires_at = excluded.expires_at
+    where scheduler_lease.holder = excluded.holder or scheduler_lease.expires_at < now()
+  returning holder into v_holder;
+  return v_holder is not null;
+end;
+$$;
+
+revoke execute on function public.claim_scheduler_lease(text, int) from public, anon, authenticated;
+grant execute on function public.claim_scheduler_lease(text, int) to service_role;
 
 
 -- -------------------------------------------------------------

@@ -10,6 +10,8 @@ import { toEventDTO, verifyChain } from '../engine/events.js';
 import { markSeen, onDeviceUpdated, resetLed, withDeviceLock } from '../engine/index.js';
 import { setLed } from '../engine/led.js';
 import { notify } from '../engine/notify.js';
+import careRouter from './care.js';
+import habitRouter from './habit.js';
 
 const router = Router();
 router.use(requireUser);
@@ -167,5 +169,9 @@ router.post('/:id/simulate', loadDevice('owner'), validate({ body: simulateBody 
   });
   res.json(result);
 });
+
+// Mode sub-resources: schedules, doses (care) · streak, insights.
+router.use('/:id', careRouter);
+router.use('/:id', habitRouter);
 
 export default router;

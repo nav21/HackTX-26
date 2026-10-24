@@ -40,11 +40,11 @@ export async function requireUser(req, res, next) {
   next();
 }
 
-// Loads req.params.id as a device the caller is a member of → req.device, req.role.
+// Loads req.params[param] (default :id) as a device the caller is a member of → req.device, req.role.
 // 404 if not a member (don't leak existence); 403 if `role` is 'owner' and caller isn't.
-export function loadDevice(role) {
+export function loadDevice(role, param = 'id') {
   return async (req, res, next) => {
-    const id = req.params.id;
+    const id = req.params[param];
     if (!UUID_RE.test(id ?? '')) return next(notFound('Device not found'));
 
     const rows = must(

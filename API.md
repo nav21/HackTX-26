@@ -15,7 +15,7 @@ Product behavior lives in `SPEC.md`; this file is only the wire format.
   ```json
   { "error": { "code": "not_found", "message": "Device not found" } }
   ```
-  Codes: `bad_request` (400, zod failures add `details`), `unauthorized` (401), `forbidden` (403), `not_found` (404), `conflict` (409), `rate_limited` (429, claim attempts), `ai_unavailable` (503), `ai_failed` (502, incl. timeouts), `internal` (500). In production 500s say only "Internal server error".
+  Codes: `bad_request` (400, zod failures add `details`), `unauthorized` (401), `forbidden` (403), `not_found` (404), `conflict` (409), `unprocessable` (422, AI parse found nothing), `rate_limited` (429, claim attempts), `ai_unavailable` (503), `ai_failed` (502, incl. timeouts), `internal` (500). In production 500s say only "Internal server error".
 - **Times:** timestamps are ISO 8601 UTC strings (`"2026-10-24T13:12:00.000Z"`). Dates are `"YYYY-MM-DD"` in the **device's** timezone. Times of day are `"HH:MM"` (24 h) in the device's timezone.
 - **IDs:** uuids, except `events.id`, which is a number (bigserial).
 - **Membership:** every `/api/devices/:id/*` endpoint 404s if the caller is not a member (don't leak existence). "(owner)" endpoints 403 for non-owner members.
@@ -63,7 +63,8 @@ type Event = {
 type Notification = {
   id: string
   device_id: string | null
-  kind: string                     // same vocabulary as event types, plus "group_post", "daily_summary", "offline", "member_added"
+  kind: string                     // reminder_sent, dose_taken, dose_late, dose_missed, escalated, manual_taken, daily_summary,
+                                   // habit_reminder, group_post, alert, alert_still_open, offline, member_added
   title: string                    // short, human: "Grandma took her 8 AM meds"
   body: string | null              // "8:12 AM · verified by sensor"
   urgent: boolean
@@ -148,6 +149,9 @@ DeviceSummary & {
   tone: "supportive" | "roast"
   timezone: string
   group_id: string | null
+  reminder_time: string | null     // habit: "HH:MM" daily nudge time, null = no reminder
+  habit_label: string | null       // habit: name in copy ("creatine"); null → device name
+  habit_action: string | null      // habit: feed/notification verb phrase ("took creatine"); null → "completed <habit>"
   pairing_code: string | null      // only included for the owner
   created_at: string
   claimed_at: string
@@ -159,8 +163,8 @@ DeviceSummary & {
 ```
 
 ### PATCH /api/devices/:id  (owner)
-body `{ name?, mode?, armed?, silent?, tone?, group_id?: string|null, container_type?, icon?: string|null, timezone?: IANA string }`
-→ `DeviceDetail`. Side effects: `mode` change → `mode_changed` event + LED reset; `armed` change → `armed`/`disarmed` event + LED.
+body `{ name?, mode?, armed?, silent?, tone?, group_id?: string|null, container_type?, icon?: string|null, timezone?: IANA string, reminder_time?: "HH:MM"|null, habit_label?: string|null, habit_action?: string|null }`
+→ `DeviceDetail`. Side effects: `mode` change → `mode_changed` event; `armed` change → `armed`/`disarmed` event; then the LED is recomputed for the current mode (any field can change it, e.g. `silent`, `reminder_time`).
 `group_id` must be a group the caller belongs to.
 
 ### DELETE /api/devices/:id  (owner)
@@ -193,8 +197,8 @@ Errors: `404 not_found` "No BWS account with that email" · `409 conflict` alrea
 → `Schedule[]`
 
 ### POST /api/devices/:id/schedules  (owner)
-body `{ label, time_of_day: "HH:MM", days: number[] (non-empty, 0-6), window_before_min?, grace_min?, escalate_after_min? }`
-→ `201 Schedule`
+body `{ label (1-60), time_of_day: "HH:MM", days: number[] (non-empty, 0-6), window_before_min?, grace_min?, escalate_after_min? }` (0-720 min; defaults 60/30/30)
+→ `201 Schedule`. Today's dose rows are created right away (a dose whose grace period already ended before the schedule existed is skipped, so adding an 8 AM schedule at 10 AM doesn't produce a missed dose).
 
 ### PATCH /api/devices/:id/schedules/:sid  (owner)
 body: any subset of POST fields plus `active?` → `Schedule`
@@ -204,7 +208,7 @@ body: any subset of POST fields plus `active?` → `Schedule`
 
 ### POST /api/devices/:id/schedules/parse  (owner, AI, does not save)
 body `{ text: string (1-500) }`
-→ `{ proposed: [{ label, time_of_day, days }] }`
+→ `{ proposed: [{ label, time_of_day, days }], fallback: boolean }` (`fallback` = AI unavailable, a deterministic parser answered). `422 unprocessable` when nothing could be parsed. Uses the device's mode for default labels ("Morning meds" / "Morning habit"). Stored as an `ai_insights` row (kind `schedule_parse`, `content` = input text, `data` = `{ proposed }`).
 
 ## Doses (care)
 
@@ -212,7 +216,7 @@ body `{ text: string (1-500) }`
 Defaults to the last 14 days through today. → `DoseInstance[]` (by date, then time)
 
 ### POST /api/devices/:id/doses/:doseId/manual  (owner)
-Marks taken with `source = "manual"` (self-reported). → `DoseInstance`. `409` if already taken.
+Marks taken with `source = "manual"` (self-reported): `manual_taken` event, caregivers notified. → `DoseInstance`. `409` if already taken or late.
 
 ## Streak (habit)
 
@@ -224,8 +228,10 @@ Marks taken with `source = "manual"` (self-reported). → `DoseInstance`. `409` 
 ### GET /api/devices/:id/insights?kind=&limit=10
 → `Insight[]` newest first
 
-### POST /api/devices/:id/insights/daily
-Generates the Care daily summary now (also notifies caregivers). → `201 Insight`
+### POST /api/devices/:id/insights/daily  (owner or caregiver)
+Generates the Care daily summary now (also notifies caregivers). → `201 Insight` (`content` = summary + pattern note, `data` = `{ summary, pattern_note, fallback?, mock? }`). `400` if the device isn't in Care mode. The scheduler also generates one at 9 PM device time.
+
+Insight `data` is the full AI output; `data.fallback: true` means deterministic copy was used (model failed), `data.mock: true` means `MOCK_AI`.
 
 ## Simulator
 
@@ -251,7 +257,7 @@ body `{ type: "OPEN" | "CLOSE" | "HB" }` → `{ event: Event | null, lid_state: 
 body `{ name: string (1-40) }` → `201 { id, name, invite_code }` (caller joins automatically)
 
 ### POST /api/groups/join
-body `{ invite_code: string }` → `{ id, name, invite_code }`. `404` bad code.
+body `{ invite_code: string }` (case-insensitive) → `{ id, name, invite_code }`. `404` bad code. Joining twice is a no-op.
 
 ### GET /api/groups
 → `[{ id, name, invite_code, member_count }]` groups the caller is in
@@ -266,6 +272,9 @@ body `{ invite_code: string }` → `{ id, name, invite_code }`. `404` bad code.
 }
 type GroupPost = { id, group_id, user_id, display_name, device_id, kind: "habit_done" | "streak_broken" | "ai", body: string, ai: boolean, created_at }
 ```
+A member's status comes from their first device in the group (habit mode preferred). Posts are written by the engine: `habit_done` on a grouped device's first open of the day (body by AI in the device's tone; `ai: false` when the deterministic fallback was used) and `streak_broken` when a grouped streak lapses. Other group members also get a `group_post` notification on completion.
+
+`404` if the caller isn't a member.
 
 ### POST /api/groups/:id/leave
 → `204` (also detaches the caller's devices from the group)
@@ -274,7 +283,7 @@ type GroupPost = { id, group_id, user_id, display_name, device_id, kind: "habit_
 
 ### POST /api/demo/schedule-now/:deviceId  (owner)
 Moves the next active dose of a Care device to 1 minute from now with a 1-minute grace and 1-minute escalation.
-→ `{ schedule: Schedule, dose: DoseInstance }`
+→ `{ schedule: Schedule, dose: DoseInstance }`. Details: the dose time is the start of the minute after next (60-120 s away); `window_before_min` is set to 0 so an early open doesn't count; today's dose row is replaced by a fresh `upcoming` one. Timeline: reminder at T (LED `Y,BLINK`), missed at T+1 (`R,BLINK`, owner + caregivers), escalated at T+2 (urgent, caregivers). Opening at T..T+1 = taken, T+1..T+2 = late. This permanently edits that schedule. `400` if not in Care mode or no schedules.
 
 ---
 
@@ -303,7 +312,7 @@ The client subscribes with its own session; RLS limits rows to what the user can
 | --- | --- |
 | `devices` | lid_state, led, last_seen_at, armed, mode changes (status is derived client-side from last_seen_at). `secret_hash` and `pairing_code` are not selectable by clients (column grants), so payloads omit them and a direct `select("*")` on devices with the anon key fails: list columns or use the API. |
 | `events` | live timeline |
-| `notifications` | toasts + bell count (filter `user_id=eq.<me>`) |
+| `notifications` | toasts + bell count (filter `user_id=eq.<me>`). Security `alert` rows get an UPDATE ~1-2 s after the INSERT: the AI incident summary is prepended to `body`. Listen to UPDATE too if you show the body. |
 | `dose_instances` | Care status chips |
 | `streaks` | Habit counter |
 | `group_posts` | group feed |

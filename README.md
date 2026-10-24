@@ -42,11 +42,13 @@ npm run db:migrate                 # apply supabase/schema.sql to DATABASE_URL (
 npm run db:migrate -- --check      # summary only
 npm run create-device -- --name "Demo Box"   # new unclaimed device; prints DEVICE_ID / DEVICE_SECRET / pairing code for bridge/.env
 npm run verify-chain -- <deviceId> # latest events + hash-chain check (service role)
-npm test                           # unit tests (hash chain, zod schemas); no DB or network
+npm test                           # unit tests (hash chain, zod, engine/logic, AI features); no DB or network
+npm run test:integration           # drives Care/Habit/Security against the live DB with temp devices, then deletes them
+npm run test:routes                # HTTP-level test of the user routes (auth stubbed to an existing profile), cleans up
 ```
 
 - The device secret is shown once; only its hash is stored. Print the pairing code on the box label.
-- Rules engine lives in `server/engine/` (interfaces documented at the top of `engine/index.js`). The scheduler ticks every 15 s; set `DISABLE_SCHEDULER=true` to turn it off locally.
+- Rules engine lives in `server/engine/` (interfaces documented at the top of `engine/index.js`; decisions in `engine/logic/`, see its README). The scheduler ticks every 15 s; every server on the same DB competes for a lease (`scheduler_lease`), so only one ticks at a time. Set `DISABLE_SCHEDULER=true` to opt a server out.
 - Every API error is `{ error: { code, message, details? } }` (see API.md).
 
 ## Environment variables
@@ -64,6 +66,7 @@ Never commit `.env`. Only `.env.example` (key names only) is in git.
 | `MODEL_API_KEY` | dev.meta.ai → API keys |
 | `MUSE_MODEL` | `muse-spark-1.3` (default) |
 | `DATABASE_URL` | Supabase → Connect → **Session pooler** URI (with the DB password). Only needed for `npm run db:migrate`. |
+| `DEMO_MODE` | `true` enables `POST /api/demo/schedule-now/:deviceId` (moves the next dose to ~1 min from now) |
 | `DISABLE_SCHEDULER` | `true` to stop the 15 s rules-engine tick (e.g. when several dev servers share one DB) |
 | `MOCK_AI` | `true` to return canned responses from `server/ai/mocks/` with no API calls. Use this while building UI. |
 

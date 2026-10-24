@@ -10,9 +10,13 @@ const DEFAULT_MODEL = 'muse-spark-1.3';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const CACHE_MAX = 200;
 const MOCKS_DIR = path.join(import.meta.dirname, 'mocks');
+// "low" measured ~474 completion tokens / 1.4 s vs 1.2k–3.8k / 4–14 s at the default effort.
+const DEFAULT_REASONING_EFFORT = 'low';
+const DEFAULT_MAX_COMPLETION_TOKENS = 1500; // includes reasoning tokens; keep generous
 
 const cache = new Map();
 let client;
+let tuningUnsupported = false; // set if the API 400s on reasoning_effort / max_completion_tokens
 
 export const getModel = () => process.env.MUSE_MODEL || DEFAULT_MODEL;
 export const isMockAI = () => ['true', '1'].includes(String(process.env.MOCK_AI).toLowerCase());
@@ -55,29 +59,44 @@ async function loadMock(file, mockKey) {
 
 // ---- logging --------------------------------------------------------------
 
-function logCall({ fn, model, ms, usage, cached = false }) {
+function logCall({ fn, model, ms, usage, cached = false, effort }) {
   const tokens = usage
-    ? `prompt=${usage.prompt_tokens ?? '?'} completion=${usage.completion_tokens ?? '?'} total=${usage.total_tokens ?? '?'}`
+    ? `prompt=${usage.prompt_tokens ?? '?'} completion=${usage.completion_tokens ?? '?'} ` +
+      `reasoning=${usage.completion_tokens_details?.reasoning_tokens ?? '?'} total=${usage.total_tokens ?? '?'}`
     : 'tokens=n/a';
-  console.log(`[ai] ${fn} model=${model} ms=${ms} ${tokens} cached=${cached ? 'yes' : 'no'}`);
+  const effortTag = effort ? ` effort=${effort}` : '';
+  console.log(`[ai] ${fn} model=${model}${effortTag} ms=${ms} ${tokens} cached=${cached ? 'yes' : 'no'}`);
 }
 
 // ---- core request ---------------------------------------------------------
 
-async function chat({ fn, system, prompt, responseFormat, timeoutMs }) {
+async function chat({ fn, system, prompt, responseFormat, timeoutMs, reasoningEffort, maxCompletionTokens }) {
   const model = getModel();
   const messages = [];
   if (system) messages.push({ role: 'system', content: system });
   messages.push({ role: 'user', content: prompt });
 
   const openai = getClient(); // throws a clean 503 if MODEL_API_KEY is missing
+  const base = { model, messages, ...(responseFormat && { response_format: responseFormat }) };
+  const tuning = {
+    ...(reasoningEffort && { reasoning_effort: reasoningEffort }),
+    ...(maxCompletionTokens && { max_completion_tokens: maxCompletionTokens }),
+  };
+  const options = timeoutMs ? { timeout: timeoutMs } : undefined;
   const started = Date.now();
   try {
-    const res = await openai.chat.completions.create(
-      { model, messages, ...(responseFormat && { response_format: responseFormat }) },
-      timeoutMs ? { timeout: timeoutMs } : undefined
-    );
-    logCall({ fn, model, ms: Date.now() - started, usage: res.usage });
+    let res;
+    const withTuning = !tuningUnsupported && Object.keys(tuning).length > 0;
+    try {
+      res = await openai.chat.completions.create(withTuning ? { ...base, ...tuning } : base, options);
+    } catch (err) {
+      if (!(err instanceof BadRequestError) || !withTuning) throw err;
+      // Maybe the API doesn't know reasoning_effort / max_completion_tokens: retry once without them.
+      res = await openai.chat.completions.create(base, options);
+      tuningUnsupported = true;
+      console.warn(`[ai] reasoning_effort/max_completion_tokens rejected (${err.message}); sending without them`);
+    }
+    logCall({ fn, model, ms: Date.now() - started, usage: res.usage, effort: tuningUnsupported ? null : reasoningEffort });
     return res.choices?.[0]?.message?.content ?? '';
   } catch (err) {
     if (err instanceof BadRequestError && responseFormat) throw err; // caller falls back
@@ -92,16 +111,25 @@ async function chat({ fn, system, prompt, responseFormat, timeoutMs }) {
 
 // ---- public API -----------------------------------------------------------
 
+// Shared options: reasoningEffort ('low' default; null to omit), maxCompletionTokens (default 1500).
+
 /** @returns {Promise<string>} */
-export async function generateText({ system, prompt, mockKey, timeoutMs } = {}) {
+export async function generateText({
+  system,
+  prompt,
+  mockKey,
+  timeoutMs,
+  reasoningEffort = DEFAULT_REASONING_EFFORT,
+  maxCompletionTokens = DEFAULT_MAX_COMPLETION_TOKENS,
+} = {}) {
   if (isMockAI()) return loadMock('text.json', mockKey);
 
-  const key = cacheKey(['text', getModel(), system, prompt]);
+  const key = cacheKey(['text', getModel(), reasoningEffort, maxCompletionTokens, system, prompt]);
   if (cache.has(key)) {
     logCall({ fn: 'generateText', model: getModel(), ms: 0, cached: true });
     return cache.get(key);
   }
-  const text = await chat({ fn: 'generateText', system, prompt, timeoutMs });
+  const text = await chat({ fn: 'generateText', system, prompt, timeoutMs, reasoningEffort, maxCompletionTokens });
   cacheSet(key, text);
   return text;
 }
@@ -118,13 +146,23 @@ function parseJSON(raw) {
 /**
  * @param {object} opts
  * @param {object|string} [opts.schemaHint] JSON Schema object (uses structured output) or a plain-text shape description.
+ * @param {string|null} [opts.reasoningEffort] sent as reasoning_effort (default 'low')
+ * @param {number|null} [opts.maxCompletionTokens] sent as max_completion_tokens (default 1500)
  * @returns {Promise<any>} parsed JSON
  */
-export async function generateJSON({ system, prompt, schemaHint, mockKey, timeoutMs } = {}) {
+export async function generateJSON({
+  system,
+  prompt,
+  schemaHint,
+  mockKey,
+  timeoutMs,
+  reasoningEffort = DEFAULT_REASONING_EFFORT,
+  maxCompletionTokens = DEFAULT_MAX_COMPLETION_TOKENS,
+} = {}) {
   if (isMockAI()) return loadMock('json.json', mockKey);
 
   const isSchema = schemaHint !== null && typeof schemaHint === 'object';
-  const key = cacheKey(['json', getModel(), system, prompt, schemaHint ?? null]);
+  const key = cacheKey(['json', getModel(), reasoningEffort, maxCompletionTokens, system, prompt, schemaHint ?? null]);
   if (cache.has(key)) {
     logCall({ fn: 'generateJSON', model: getModel(), ms: 0, cached: true });
     return structuredClone(cache.get(key));
@@ -152,7 +190,15 @@ export async function generateJSON({ system, prompt, schemaHint, mockKey, timeou
     while (true) {
       const format = formats[0];
       try {
-        raw = await chat({ fn: 'generateJSON', system: jsonSystem, prompt, responseFormat: format, timeoutMs });
+        raw = await chat({
+          fn: 'generateJSON',
+          system: jsonSystem,
+          prompt,
+          responseFormat: format,
+          timeoutMs,
+          reasoningEffort,
+          maxCompletionTokens,
+        });
         break;
       } catch (err) {
         if (!(err instanceof BadRequestError) || !format) throw err;

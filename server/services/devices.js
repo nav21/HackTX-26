@@ -3,13 +3,13 @@ import { supabase } from '../supabase.js';
 import { must } from '../lib/errors.js';
 import { hhmm, localDate, localDateTime, localWeekday, startOfLocalDay } from '../lib/time.js';
 import { isoMs } from '../lib/hash.js';
-import { OFFLINE_AFTER_MS } from '../engine/index.js';
+import { OFFLINE_AFTER_MS } from '../engine/logic/index.js';
 
 const ROLE_ORDER = { owner: 0, caregiver: 1, viewer: 2 };
 const iso = (t) => (t ? isoMs(t) : null);
 
 export const statusOf = (device, now = new Date()) =>
-  device.last_seen_at && now.getTime() - new Date(device.last_seen_at).getTime() <= OFFLINE_AFTER_MS
+  device.last_seen_at && now.getTime() - new Date(device.last_seen_at).getTime() < OFFLINE_AFTER_MS
     ? 'online'
     : 'offline';
 
@@ -196,6 +196,9 @@ export async function buildDetail(device, role, now = new Date()) {
     tone: device.tone,
     timezone: device.timezone,
     group_id: device.group_id ?? null,
+    reminder_time: hhmm(device.reminder_time ?? null),
+    habit_label: device.habit_label ?? null,
+    habit_action: device.habit_action ?? null,
     pairing_code: role === 'owner' ? device.pairing_code : null,
     created_at: iso(device.created_at),
     claimed_at: iso(device.claimed_at),
