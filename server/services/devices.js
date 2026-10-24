@@ -142,6 +142,8 @@ function toSummary(device, role, data, now) {
     led: device.led,
     last_seen_at: iso(device.last_seen_at),
     armed: device.armed,
+    person_name: device.person_name ?? null,
+    person_pronoun: device.person_pronoun ?? null,
     role,
     today: TODAY[device.mode](device, data, now),
   };
