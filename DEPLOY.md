@@ -25,7 +25,7 @@ Steps marked **[YOU]** need a login, connecting the repo, or pasting secrets.
    | Key | Value |
    | --- | --- |
    | `NODE_ENV` | `production` |
-   | `CLIENT_URL` | Vercel URL from step 3 (fill in after; e.g. `https://hacktx-26.vercel.app`) |
+   | `CLIENT_URL` | Vercel URL from step 3 (fill in after; e.g. `https://hack-tx-26.vercel.app`) |
    | `SUPABASE_URL` | Project URL |
    | `SUPABASE_SERVICE_ROLE_KEY` | service_role / secret key |
    | `MODEL_API_KEY` | Meta key |

@@ -2,6 +2,8 @@
 
 HackTX 2026 project. Name and idea are decided separately; this is the skeleton.
 
+**Live:** client https://hack-tx-26.vercel.app · API https://hacktx-26.onrender.com/api/health
+
 **Stack:** React (Vite) + Tailwind + shadcn/ui · Express · Supabase (Postgres, auth, storage) · Meta Muse Spark (Meta Model API)
 
 ```
