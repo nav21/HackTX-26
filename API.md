@@ -42,6 +42,8 @@ type DeviceSummary = {
   led: Led                         // what the box LED should show right now
   last_seen_at: string | null
   armed: boolean
+  person_name: string | null       // care: who takes the meds (see DeviceDetail)
+  person_pronoun: "her" | "his" | "their" | null
   role: Role                       // caller's role on this device
   today: CareToday | HabitToday | SecurityToday
 }
