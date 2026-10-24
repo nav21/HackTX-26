@@ -1,7 +1,12 @@
 import { Router } from 'express';
 import { supabase } from '../supabase.js';
-import { requireUser } from '../middleware/auth.js';
 import aiRouter from './ai.js';
+import meRouter from './me.js';
+import devicesRouter from './devices.js';
+import notificationsRouter from './notifications.js';
+import deviceRouter from './device.js';
+import groupsRouter from './groups.js';
+import demoRouter from './demo.js';
 
 const router = Router();
 
@@ -24,11 +29,12 @@ router.get('/health', async (req, res) => {
   res.json({ status: 'ok', db });
 });
 
-// Protected example: identity comes only from the verified token.
-router.get('/me', requireUser, (req, res) => {
-  res.json({ id: req.user.id, email: req.user.email });
-});
-
+router.use('/me', meRouter);
+router.use('/devices', devicesRouter);
+router.use('/notifications', notificationsRouter);
+router.use('/device', deviceRouter);
+router.use('/groups', groupsRouter);
+if (process.env.DEMO_MODE === 'true') router.use('/demo', demoRouter);
 router.use('/ai', aiRouter);
 
 export default router;

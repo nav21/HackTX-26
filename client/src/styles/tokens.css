@@ -1,0 +1,129 @@
+/*
+ * BWS design tokens — the single source for color, shape, space, type and motion.
+ * Every page and component uses these (via Tailwind utilities wired in index.css).
+ * Do not add one-off hex values or pixel sizes anywhere else.
+ */
+
+/* The page accent. Registered so it can transition between modes (300 ms). */
+@property --accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f2f4f7;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* ── Neutrals (dark default) ─────────────────────────────── */
+  --bws-bg: #0b0d10;
+  --bws-surface: #14171c;
+  --bws-raised: #1b1f26;
+  --bws-hover: #222731;          /* raised + one step, hover / pressed */
+  --bws-border: #262b33;
+  --bws-border-strong: #343a44;  /* dividers on raised surfaces, input hover */
+  --bws-text: #f2f4f7;
+  --bws-muted: #8a93a3;
+  --bws-faint: #5c6473;          /* tertiary text, disabled */
+  --bws-on-accent: #0b0d10;      /* text on top of any accent fill */
+  --bws-overlay: rgb(5 6 8 / 0.72);
+
+  /* ── Mode accents ────────────────────────────────────────── */
+  --bws-care: #4ade80;
+  --bws-habit: #fb923c;
+  --bws-security: #f87171;
+
+  /* ── Status ──────────────────────────────────────────────── */
+  --bws-success: #4ade80;
+  --bws-info: #60a5fa;
+  --bws-warning: #fbbf24;
+  --bws-danger: #f87171;
+
+  /* ── LED (mirrors the box's RGB LED) ─────────────────────── */
+  --bws-led-g: #4ade80;
+  --bws-led-y: #fbbf24;
+  --bws-led-r: #f87171;
+  --bws-led-b: #60a5fa;
+  --bws-led-off: #343a44;
+
+  /* ── Box illustration ────────────────────────────────────── */
+  --box-front: #1f242c;
+  --box-side: #161a20;
+  --box-top: #2a303a;
+  --box-lid-under: #12151a;
+  --box-inner-wall: #0f1216;
+  --box-inner-floor: #090b0d;
+  --box-stroke: #4a5260;
+  --box-label: #8a93a3;
+  --box-shadow: rgb(0 0 0 / 0.55);
+  --box-light: #fff4d6;          /* warm light that floods in when the lid opens */
+
+  /* ── Page accent (set per mode with data-mode) ───────────── */
+  --accent: var(--bws-text);
+
+  /* ── Radii ───────────────────────────────────────────────── */
+  --bws-radius-card: 16px;
+  --bws-radius-control: 12px;
+  --bws-radius-inner: 8px;           /* small tiles inside cards, chips with corners */
+  --bws-radius-pill: 9999px;
+
+  /* ── Shadows ─────────────────────────────────────────────── */
+  --bws-shadow-raised: inset 0 1px 0 rgb(255 255 255 / 0.03), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  --bws-shadow-pop: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 24px 64px -16px rgb(0 0 0 / 0.7);
+  --bws-shadow-glow: 0 0 0 1px color-mix(in oklab, var(--accent) 28%, transparent),
+    0 0 48px -8px color-mix(in oklab, var(--accent) 40%, transparent);
+
+  /* ── Spacing (8 px grid; 4 px only for hairline nudges) ──── */
+  --bws-space-half: 4px;
+  --bws-space-1: 8px;
+  --bws-space-2: 16px;
+  --bws-space-3: 24px;
+  --bws-space-4: 32px;
+  --bws-space-5: 40px;
+  --bws-space-6: 48px;
+  --bws-space-8: 64px;
+  --bws-space-10: 80px;
+  --bws-gutter: 24px;
+  --bws-page-max: 1200px;
+  --bws-rail-width: 360px;
+
+  /* ── Type ────────────────────────────────────────────────── */
+  --bws-font-display: "Space Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --bws-font-body: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --bws-text-xs: 12px;     /* tags, timestamps */
+  --bws-text-sm: 13px;     /* secondary lines */
+  --bws-text-base: 15px;   /* body */
+  --bws-text-md: 16px;     /* emphasized body, inputs on mobile */
+  --bws-text-lg: 18px;     /* section titles */
+  --bws-text-xl: 22px;     /* card titles, page sub-headings */
+  --bws-text-2xl: 28px;    /* page titles */
+  --bws-text-3xl: 36px;    /* hero sub-numbers */
+  --bws-text-display: 48px; /* big status number (min) */
+  --bws-text-hero: 72px;   /* big status number (max) */
+
+  /* ── Motion ──────────────────────────────────────────────── */
+  --bws-duration-fast: 150ms;    /* hovers, presses */
+  --bws-duration-base: 200ms;    /* chips, crossfades */
+  --bws-duration-accent: 300ms;  /* mode switch recolor */
+  --bws-duration-slow: 600ms;    /* page-level reveals */
+  --bws-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --bws-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* Mode scoping: any element with data-mode recolors its subtree. */
+[data-mode="care"] { --accent: var(--bws-care); }
+[data-mode="habit"] { --accent: var(--bws-habit); }
+[data-mode="security"] { --accent: var(--bws-security); }
+[data-mode] {
+  transition: --accent var(--bws-duration-accent) var(--bws-ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

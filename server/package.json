@@ -6,7 +6,13 @@
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js",
-    "ai:test": "node ai/test.js"
+    "test": "node --test \"test/*.test.js\" \"engine/logic/__tests__/*.test.js\" \"ai/features/__tests__/*.test.js\"",
+    "db:migrate": "node scripts/migrate.js",
+    "create-device": "node scripts/create-device.js",
+    "verify-chain": "node scripts/verify-chain.js",
+    "ai:test": "node ai/test.js",
+    "test:integration": "node scripts/integration-test.js",
+    "test:routes": "node scripts/route-test.js"
   },
   "keywords": [],
   "author": "",
@@ -17,8 +23,11 @@
     "cors": "^2.8.6",
     "dotenv": "^18.0.9",
     "express": "^5.3.0",
+    "luxon": "^3.7.2",
     "morgan": "^1.12.1",
-    "openai": "^7.43.0"
+    "openai": "^7.43.0",
+    "pg": "^8.23.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

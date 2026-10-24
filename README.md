@@ -33,6 +33,24 @@ Open http://localhost:5173. The badge on `/app` should say the API and DB are ok
 
 Other scripts: `npm run dev:server`, `npm run dev:client`, `npm run build` (client), and in `/server`: `npm run ai:test` (lists Muse models + one sample call; spends a few credits).
 
+## Backend dev
+
+From `/server`:
+
+```bash
+npm run db:migrate                 # apply supabase/schema.sql to DATABASE_URL (one transaction, idempotent) + print RLS/publication summary
+npm run db:migrate -- --check      # summary only
+npm run create-device -- --name "Demo Box"   # new unclaimed device; prints DEVICE_ID / DEVICE_SECRET / pairing code for bridge/.env
+npm run verify-chain -- <deviceId> # latest events + hash-chain check (service role)
+npm test                           # unit tests (hash chain, zod, engine/logic, AI features); no DB or network
+npm run test:integration           # drives Care/Habit/Security against the live DB with temp devices, then deletes them
+npm run test:routes                # HTTP-level test of the user routes (auth stubbed to an existing profile), cleans up
+```
+
+- The device secret is shown once; only its hash is stored. Print the pairing code on the box label.
+- Rules engine lives in `server/engine/` (interfaces documented at the top of `engine/index.js`; decisions in `engine/logic/`, see its README). The scheduler ticks every 15 s; every server on the same DB competes for a lease (`scheduler_lease`), so only one ticks at a time. Set `DISABLE_SCHEDULER=true` to opt a server out.
+- Every API error is `{ error: { code, message, details? } }` (see API.md).
+
 ## Environment variables
 
 Never commit `.env`. Only `.env.example` (key names only) is in git.
@@ -47,6 +65,9 @@ Never commit `.env`. Only `.env.example` (key names only) is in git.
 | `SUPABASE_SERVICE_ROLE_KEY` | Same page → `service_role` key (or the **secret** key on the new API keys tab). **Server only. Bypasses RLS.** |
 | `MODEL_API_KEY` | dev.meta.ai → API keys |
 | `MUSE_MODEL` | `muse-spark-1.3` (default) |
+| `DATABASE_URL` | Supabase → Connect → **Session pooler** URI (with the DB password). Only needed for `npm run db:migrate`. |
+| `DEMO_MODE` | `true` enables `POST /api/demo/schedule-now/:deviceId` (moves the next dose to ~1 min from now) |
+| `DISABLE_SCHEDULER` | `true` to stop the 15 s rules-engine tick (e.g. when several dev servers share one DB) |
 | `MOCK_AI` | `true` to return canned responses from `server/ai/mocks/` with no API calls. Use this while building UI. |
 
 ### `client/.env`
@@ -62,7 +83,7 @@ Anything prefixed `VITE_` ships to the browser. Never put the service role key o
 ## Supabase setup (once per project)
 
 1. Create a project at supabase.com.
-2. SQL Editor → paste and run `supabase/schema.sql`, then `supabase/seed.sql`.
+2. `npm --prefix server run db:migrate` (needs `DATABASE_URL`), or SQL Editor → paste and run `supabase/schema.sql`. Then `supabase/seed.sql`.
 3. Authentication → Sign In / Providers → **Email**: enabled.
 4. Same page → turn **off "Confirm email"** for the hackathon so signup is instant.
 5. Authentication → URL Configuration: add `http://localhost:5173` (and the Vercel URL after deploy, see DEPLOY.md).

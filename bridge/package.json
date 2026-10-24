@@ -1,0 +1,21 @@
+{
+  "name": "bws-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BWS serial bridge: forwards Arduino lid events to the API and delivers LED commands to the box",
+  "type": "module",
+  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "mock": "node index.js --mock",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@serialport/parser-readline": "^13.0.0",
+    "dotenv": "^18.0.9",
+    "serialport": "^13.0.0"
+  }
+}
