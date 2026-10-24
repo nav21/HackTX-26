@@ -16,8 +16,14 @@ export async function withOwner(device) {
       .eq('role', 'owner')
   )[0];
   // Fall back to the email's local part so microcopy never reads "They hasn't...".
-  const name = owner?.profiles?.display_name?.trim() || owner?.profiles?.email?.split('@')[0] || null;
-  return Object.assign(device, { owner_id: owner?.user_id ?? null, owner_name: name });
+  const accountName = owner?.profiles?.display_name?.trim() || owner?.profiles?.email?.split('@')[0] || null;
+  // Care alerts are about the person taking the meds ("Grandma"), who may not have an account.
+  const careName = device.mode === 'care' ? device.person_name?.trim() || null : null;
+  return Object.assign(device, {
+    owner_id: owner?.user_id ?? null,
+    owner_name: careName ?? accountName,
+    owner_possessive: careName ? device.person_pronoun || 'their' : 'their',
+  });
 }
 
 /** 'YYYY-MM-DD' n days before a local date string. */

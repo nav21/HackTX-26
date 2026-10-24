@@ -26,7 +26,7 @@ router.get('/health', async (req, res) => {
       console.error('[health] db check failed:', err.message);
     }
   }
-  res.json({ status: 'ok', db });
+  res.json({ status: 'ok', db, demo: process.env.DEMO_MODE === 'true' });
 });
 
 router.use('/me', meRouter);

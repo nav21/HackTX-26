@@ -121,6 +121,13 @@ alter table public.devices add column if not exists offline_since timestamptz; -
 alter table public.devices add column if not exists reminder_time time;
 alter table public.devices add column if not exists habit_label text;   -- defaults to the device name
 alter table public.devices add column if not exists habit_action text;  -- e.g. "took creatine"
+-- Care: the person taking the meds, who often has no account ("Grandma", "her").
+alter table public.devices add column if not exists person_name text;
+alter table public.devices add column if not exists person_pronoun text;
+do $$ begin
+  alter table public.devices add constraint devices_person_pronoun_check
+    check (person_pronoun is null or person_pronoun in ('her', 'his', 'their'));
+exception when duplicate_object then null; end $$;
 create index if not exists devices_group_idx on public.devices (group_id);
 alter table public.devices enable row level security;
 
@@ -188,7 +195,7 @@ create policy "devices_select_member" on public.devices for select to authentica
 revoke select on public.devices from anon, authenticated;
 grant select (id, name, mode, container_type, icon, armed, silent, tone, timezone, claimed_at,
               last_seen_at, lid_state, group_id, created_at, led, last_seq, boot_count, offline_since,
-              reminder_time, habit_label, habit_action)
+              reminder_time, habit_label, habit_action, person_name, person_pronoun)
   on public.devices to authenticated;
 
 drop policy if exists "device_members_select" on public.device_members;

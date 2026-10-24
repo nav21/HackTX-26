@@ -199,6 +199,8 @@ export async function buildDetail(device, role, now = new Date()) {
     reminder_time: hhmm(device.reminder_time ?? null),
     habit_label: device.habit_label ?? null,
     habit_action: device.habit_action ?? null,
+    person_name: device.person_name ?? null,
+    person_pronoun: device.person_pronoun ?? null,
     pairing_code: role === 'owner' ? device.pairing_code : null,
     created_at: iso(device.created_at),
     claimed_at: iso(device.claimed_at),

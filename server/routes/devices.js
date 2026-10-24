@@ -27,6 +27,11 @@ const UNCLAIMED = {
   silent: false,
   tone: 'supportive',
   group_id: null,
+  reminder_time: null,
+  habit_label: null,
+  habit_action: null,
+  person_name: null,
+  person_pronoun: null,
 };
 
 // Brute-force guard for 4-digit codes: per user, per minute.
