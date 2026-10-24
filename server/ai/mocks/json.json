@@ -1,0 +1,6 @@
+{
+  "default": {
+    "mock": true,
+    "message": "This is a mock JSON response from server/ai/mocks/json.json"
+  }
+}

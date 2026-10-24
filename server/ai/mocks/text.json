@@ -1,0 +1,3 @@
+{
+  "default": "This is a mock AI response. Set MOCK_AI= (empty) and MODEL_API_KEY to call Muse Spark for real."
+}

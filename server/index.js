@@ -43,9 +43,9 @@ app.use((err, req, res, next) => {
   console.error(err);
 
   if (isProd) {
-    // Never leak internals (e.g. raw DB errors) in production. Only explicitly
-    // client-safe 4xx messages (err.expose, set by http-errors / body-parser) pass through.
-    const message = status >= 500 ? 'Internal server error' : err.expose ? err.message : 'Bad request';
+    // Never leak internals (e.g. raw DB errors) in production. Only messages explicitly
+    // marked client-safe (err.expose: set by http-errors/body-parser for 4xx, and by ai/client.js) pass through.
+    const message = err.expose ? err.message : status >= 500 ? 'Internal server error' : 'Bad request';
     return res.status(status).json({ error: message });
   }
   res.status(status).json({ error: err.message, code: err.code, stack: err.stack });

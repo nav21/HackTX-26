@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../supabase.js';
 import { requireUser } from '../middleware/auth.js';
+import aiRouter from './ai.js';
 
 const router = Router();
 
@@ -27,5 +28,7 @@ router.get('/health', async (req, res) => {
 router.get('/me', requireUser, (req, res) => {
   res.json({ id: req.user.id, email: req.user.email });
 });
+
+router.use('/ai', aiRouter);
 
 export default router;
