@@ -126,6 +126,8 @@ Heartbeats are **not** stored as events (they only update `last_seen_at`).
 
 ## Me
 
+Sign-up happens in the client through Supabase: `supabase.auth.signUp({ email, password, options: { data: { display_name } } })`. The profiles trigger copies `raw_user_meta_data.display_name`. The client asks once per session for a name when `display_name` is empty or equals the email's local part, then sends `PATCH /api/me`.
+
 ### GET /api/me
 → `{ id, email, display_name, avatar_url, timezone }`
 

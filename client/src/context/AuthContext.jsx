@@ -41,9 +41,15 @@ export function AuthProvider({ children }) {
       return data
     }
 
-    async function signUp(email, password) {
+    /** displayName lands in raw_user_meta_data; the DB trigger copies it to profiles. */
+    async function signUp(email, password, displayName) {
       if (!supabase) throw notConfiguredError
-      const { data, error } = await supabase.auth.signUp({ email, password })
+      const name = displayName?.trim()
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: name ? { data: { display_name: name } } : undefined,
+      })
       if (error) throw error
       return data
     }

@@ -104,10 +104,11 @@ export function todayLine(device) {
     case "care": {
       const total = today.total ?? 0
       const taken = today.taken ?? 0
-      if (!total) return "No doses scheduled today"
+      const who = device.person_name ? `${device.person_name} · ` : ""
+      if (!total) return `${who}No doses scheduled today`
       const next = today.next_dose ? ` · next ${formatTimeOfDay(today.next_dose.time_of_day)}` : ""
-      if (taken >= total) return `All ${total} ${total === 1 ? "dose" : "doses"} taken`
-      return `${taken} of ${total} ${total === 1 ? "dose" : "doses"} taken${next}`
+      if (taken >= total) return `${who}All ${total} ${total === 1 ? "dose" : "doses"} taken`
+      return `${who}${taken} of ${total} ${total === 1 ? "dose" : "doses"} taken${next}`
     }
     case "habit": {
       const streak = today.streak ?? 0

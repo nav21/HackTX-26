@@ -13,6 +13,7 @@ import { useAuth } from "@/context/AuthContext"
 import { isSupabaseConfigured } from "@/lib/supabase"
 
 function AuthForm({ mode, onSubmit }) {
+  const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -21,10 +22,14 @@ function AuthForm({ mode, onSubmit }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
+    if (signUp && !name.trim()) {
+      setError("Tell us your name so family and friends know who you are.")
+      return
+    }
     setSubmitting(true)
     setError(null)
     try {
-      await onSubmit(email, password)
+      await onSubmit(email, password, name.trim())
     } catch (err) {
       setError(err?.message || "Something went wrong. Try again.")
     } finally {
@@ -34,6 +39,23 @@ function AuthForm({ mode, onSubmit }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {signUp ? (
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="signup-name" className="text-sm font-medium text-text">
+            Your name
+          </Label>
+          <Input
+            id="signup-name"
+            placeholder="Nav"
+            autoComplete="given-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={50}
+            required
+            className="h-12"
+          />
+        </div>
+      ) : null}
       <div className="flex flex-col gap-2">
         <Label htmlFor={`${mode}-email`} className="text-sm font-medium text-text">
           Email
@@ -123,8 +145,8 @@ export default function Login() {
     navigate(redirectTo, { replace: true })
   }
 
-  async function handleSignUp(email, password) {
-    const { session: newSession } = await signUp(email, password)
+  async function handleSignUp(email, password, name) {
+    const { session: newSession } = await signUp(email, password, name)
     if (newSession) navigate(redirectTo, { replace: true })
     else setNotice("Check your email to confirm your account, then sign in.")
   }

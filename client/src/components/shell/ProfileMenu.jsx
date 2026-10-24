@@ -1,4 +1,4 @@
-import { LogOut } from "lucide-react"
+import { LogOut, UserRound } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -10,10 +10,11 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { initials } from "@/lib/format"
 
-/** Avatar → menu with name, email and Sign out. */
-export default function ProfileMenu({ name, email, avatarUrl, onSignOut }) {
+/** Avatar → menu with name, email, "Your name" and Sign out. */
+export default function ProfileMenu({ name, email, avatarUrl, onSignOut, onEditName }) {
   return (
-    <DropdownMenu>
+    // non-modal so the name dialog it opens gets focus and pointer events cleanly
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger
         className="inline-flex size-10 cursor-pointer items-center justify-center rounded-pill outline-none focus-visible:outline-2 focus-visible:outline-accent"
         aria-label="Account"
@@ -29,6 +30,12 @@ export default function ProfileMenu({ name, email, avatarUrl, onSignOut }) {
           {email ? <p className="truncate text-xs font-normal text-subtle">{email}</p> : null}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {onEditName ? (
+          <DropdownMenuItem onSelect={onEditName} className="h-9 gap-2 px-2 text-sm">
+            <UserRound className="size-4" aria-hidden />
+            Your name
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem onSelect={onSignOut} className="h-9 gap-2 px-2 text-sm">
           <LogOut className="size-4" aria-hidden />
           Sign out
