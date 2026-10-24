@@ -43,6 +43,8 @@ export const patchDevice = z.object({
   reminder_time: hhmm.nullable().optional(), // habit: daily nudge time (device-local)
   habit_label: z.string().trim().min(1).max(40).nullable().optional(), // e.g. "creatine"
   habit_action: z.string().trim().min(1).max(60).nullable().optional(), // e.g. "took creatine"
+  person_name: z.string().trim().min(1).max(40).nullable().optional(), // care: who takes the meds
+  person_pronoun: z.enum(['her', 'his', 'their']).nullable().optional(),
 });
 
 export const addMember = z.object({

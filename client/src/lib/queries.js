@@ -339,3 +339,45 @@ export function useRefreshGroups() {
   const qc = useQueryClient()
   return () => qc.invalidateQueries({ queryKey: careKeys.groups })
 }
+
+// ── Me (profile) ────────────────────────────────────────────────────
+/** PATCH /api/me { display_name } — updates the header, greeting and member lists. */
+export function useUpdateMe() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body) => api.patch("/api/me", body).then((r) => r.data),
+    onSuccess: (me, body) => {
+      qc.setQueryData(keys.me, (old) => ({ ...(old ?? {}), ...body, ...(me ?? {}) }))
+      qc.invalidateQueries({ queryKey: keys.me })
+      qc.invalidateQueries({ queryKey: ["members"] })
+      qc.invalidateQueries({ queryKey: ["group"] })
+    },
+  })
+}
+
+/** True when the name looks unset: empty, or just the email's local part. */
+export function needsName(me) {
+  if (!me) return false
+  const name = me.display_name?.trim()
+  if (!name) return true
+  const local = me.email?.split("@")[0]
+  return Boolean(local) && name.toLowerCase() === local.toLowerCase()
+}
+
+// ── Health / demo ───────────────────────────────────────────────────
+export function useHealth() {
+  return useQuery({ queryKey: ["health"], queryFn: () => get("/api/health"), staleTime: 5 * 60_000, retry: false })
+}
+
+/** POST /api/demo/schedule-now/:deviceId → { schedule, dose } (DEMO_MODE only, owner, Care). */
+export function useDemoScheduleNow(id) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post(`/api/demo/schedule-now/${id}`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.device(id) })
+      qc.invalidateQueries({ queryKey: careKeys.doses(id) })
+      qc.invalidateQueries({ queryKey: keys.devices })
+    },
+  })
+}

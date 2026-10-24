@@ -8,6 +8,9 @@
  * `CarePanel` fetches (doses, insights) and wires the mutations.
  * `CarePanelView` is presentational, so previews can pass sample data.
  *
+ * Today card header: who takes the meds (person_name; owner edits it in a
+ * dialog) and, when GET /api/health says demo, the owner's "Demo · dose in 1 min".
+ *
  * CarePanel props:     device (DeviceDetail), canManage (owner?)
  * CarePanelView props: device, canManage,
  *   history   { doses, loading, error, onRetry }                     GET /doses (14 days)
@@ -15,8 +18,13 @@
  *   onManual(dose), manualPendingId                                   owner only
  *   schedule  { onCreate(body), onUpdate(id, patch), onDelete(id) }   promises (owner)
  *   onParse(text), onConfirm(proposed[])                              AI schedule input (owner)
+ *   onEditPerson()                                                    opens the "who takes these" editor
+ *   demo      { visible, onClick, pending }                           DEMO_MODE shortcut (owner)
  */
-import { CalendarClock } from "lucide-react"
+import { useState } from "react"
+import { CalendarClock, LoaderCircle, Pencil, Timer, UserRound, UserRoundPlus } from "lucide-react"
+import { CarePersonDialog } from "@/components/device/CarePerson"
+import { Button } from "@/components/ui/button"
 import AdherenceCalendar from "@/components/care/AdherenceCalendar"
 import AIScheduleInput from "@/components/care/AIScheduleInput"
 import CareTodayHero from "@/components/care/CareTodayHero"
@@ -26,7 +34,17 @@ import ScheduleEditor from "@/components/care/ScheduleEditor"
 import { PanelCard } from "@/components/care/states"
 import { todayKey } from "@/components/care/scheduleUtils"
 import { errorMessage } from "@/lib/errors"
-import { useDoses, useGenerateDaily, useLatestInsight, useManualDose, useScheduleMutations } from "@/lib/queries"
+import { formatTimeOfDay } from "@/lib/format"
+import {
+  useDemoScheduleNow,
+  useDoses,
+  useGenerateDaily,
+  useHealth,
+  useLatestInsight,
+  useManualDose,
+  useScheduleMutations,
+  useUpdateDevice,
+} from "@/lib/queries"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -34,6 +52,60 @@ import { toast } from "sonner"
 function mergeToday(history = [], todayDoses = [], today) {
   if (!todayDoses.length) return history
   return [...history.filter((d) => d.date !== today), ...todayDoses]
+}
+
+/** Who the doses are for (owner can edit) · the demo shortcut when the server runs DEMO_MODE. */
+function TodayHeader({ device, canManage, onEditPerson, demo }) {
+  const name = device?.person_name
+  let who = null
+  if (name && canManage && onEditPerson) {
+    who = (
+      <button
+        type="button"
+        onClick={onEditPerson}
+        className="group -mx-2 inline-flex min-w-0 cursor-pointer items-center gap-2 rounded-control px-2 py-1 text-sm font-medium text-text transition-colors duration-150 hover:bg-raised"
+        aria-label={`Doses for ${name}. Change who takes these meds`}
+      >
+        <UserRound className="size-4 shrink-0 text-accent" aria-hidden />
+        <span className="truncate">{name}</span>
+        <Pencil className="size-3.5 shrink-0 text-faint transition-colors group-hover:text-subtle" aria-hidden />
+      </button>
+    )
+  } else if (name) {
+    who = (
+      <span className="inline-flex min-w-0 items-center gap-2 text-sm font-medium text-text">
+        <UserRound className="size-4 shrink-0 text-accent" aria-hidden />
+        <span className="truncate">{name}</span>
+      </span>
+    )
+  } else if (canManage && onEditPerson) {
+    who = (
+      <Button variant="ghost" size="sm" onClick={onEditPerson} className="-ml-2 text-subtle">
+        <UserRoundPlus aria-hidden />
+        Who takes these meds?
+      </Button>
+    )
+  }
+  const showDemo = canManage && demo?.visible
+  if (!who && !showDemo) return null
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="min-w-0">{who}</div>
+      {showDemo ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={demo.onClick}
+          disabled={demo.pending}
+          className="-mr-2 text-subtle"
+          title="Moves the next dose to about a minute from now"
+        >
+          {demo.pending ? <LoaderCircle className="animate-spin" aria-hidden /> : <Timer aria-hidden />}
+          Demo · dose in 1 min
+        </Button>
+      ) : null}
+    </div>
+  )
 }
 
 export function CarePanelView({
@@ -46,6 +118,8 @@ export function CarePanelView({
   schedule = {},
   onParse,
   onConfirm,
+  onEditPerson,
+  demo,
   className,
 }) {
   const tz = device?.timezone
@@ -59,6 +133,7 @@ export function CarePanelView({
   return (
     <div className={cn("@container flex flex-col gap-6", className)}>
       <PanelCard aria-label="Today">
+        <TodayHeader device={device} canManage={canManage} onEditPerson={onEditPerson} demo={demo} />
         <CareTodayHero taken={taken} total={total} nextDose={device?.today?.next_dose ?? null} doses={doses} />
         {doses.length ? (
           <div className="border-t border-line pt-4">
@@ -131,6 +206,22 @@ export default function CarePanel({ device, canManage = false, className }) {
   const generate = useGenerateDaily(id)
   const manual = useManualDose(id)
   const { create, update, remove, parse } = useScheduleMutations(id)
+  const patch = useUpdateDevice(id)
+  const health = useHealth()
+  const demo = useDemoScheduleNow(id)
+  const [editingPerson, setEditingPerson] = useState(false)
+
+  async function runDemo() {
+    try {
+      const res = await demo.mutateAsync()
+      const hhmm = res?.dose?.time_of_day ?? res?.schedule?.time_of_day
+      toast.success(hhmm ? `Next dose moved to ${formatTimeOfDay(hhmm)}.` : "Next dose moved up.", {
+        description: "Reminder in about a minute.",
+      })
+    } catch (err) {
+      toast.error(errorMessage(err, "Couldn't move the dose."))
+    }
+  }
 
   async function markManual(dose) {
     try {
@@ -147,34 +238,49 @@ export default function CarePanel({ device, canManage = false, className }) {
   }
 
   return (
-    <CarePanelView
-      device={device}
-      canManage={canManage}
-      className={className}
-      history={{
-        doses: doses.data ?? [],
-        loading: doses.isLoading,
-        error: doses.error ? errorMessage(doses.error, "Couldn't load the last two weeks.") : null,
-        onRetry: () => doses.refetch(),
-      }}
-      summary={{
-        insight: summary.data ?? null,
-        loading: summary.isLoading,
-        error: summary.error ? errorMessage(summary.error, "Couldn't load the summary.") : null,
-        onRetry: () => summary.refetch(),
-        onGenerate: () => generate.mutateAsync().catch(() => {}),
-        generating: generate.isPending,
-        generateError: generate.error ? errorMessage(generate.error, "Couldn't write a summary right now.") : null,
-      }}
-      onManual={markManual}
-      manualPendingId={manual.isPending ? manual.variables : null}
-      schedule={{
-        onCreate: (body) => create.mutateAsync(body),
-        onUpdate: (sid, patch) => update.mutateAsync({ sid, patch }),
-        onDelete: (sid) => remove.mutateAsync(sid),
-      }}
-      onParse={(text) => parse.mutateAsync(text)}
-      onConfirm={confirmProposed}
-    />
+    <>
+      <CarePanelView
+        device={device}
+        canManage={canManage}
+        className={className}
+        onEditPerson={() => setEditingPerson(true)}
+        demo={{ visible: Boolean(health.data?.demo), onClick: runDemo, pending: demo.isPending }}
+        history={{
+          doses: doses.data ?? [],
+          loading: doses.isLoading,
+          error: doses.error ? errorMessage(doses.error, "Couldn't load the last two weeks.") : null,
+          onRetry: () => doses.refetch(),
+        }}
+        summary={{
+          insight: summary.data ?? null,
+          loading: summary.isLoading,
+          error: summary.error ? errorMessage(summary.error, "Couldn't load the summary.") : null,
+          onRetry: () => summary.refetch(),
+          onGenerate: () => generate.mutateAsync().catch(() => {}),
+          generating: generate.isPending,
+          generateError: generate.error ? errorMessage(generate.error, "Couldn't write a summary right now.") : null,
+        }}
+        onManual={markManual}
+        manualPendingId={manual.isPending ? manual.variables : null}
+        schedule={{
+          onCreate: (body) => create.mutateAsync(body),
+          onUpdate: (sid, patch) => update.mutateAsync({ sid, patch }),
+          onDelete: (sid) => remove.mutateAsync(sid),
+        }}
+        onParse={(text) => parse.mutateAsync(text)}
+        onConfirm={confirmProposed}
+      />
+      {canManage ? (
+        <CarePersonDialog
+          open={editingPerson}
+          onOpenChange={setEditingPerson}
+          device={device}
+          onSave={async (body) => {
+            await patch.mutateAsync(body)
+            toast.success(body.person_name ? `Alerts will say ${body.person_name}` : "Name cleared")
+          }}
+        />
+      ) : null}
+    </>
   )
 }

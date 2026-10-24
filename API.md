@@ -122,9 +122,11 @@ Heartbeats are **not** stored as events (they only update `last_seen_at`).
 ## Public
 
 ### GET /api/health
-→ `{ "status": "ok", "db": "ok" | "error" }`
+→ `{ "status": "ok", "db": "ok" | "error", "demo": boolean }` (`demo` = server runs with `DEMO_MODE=true`, so the client can show demo controls)
 
 ## Me
+
+Sign-up happens in the client through Supabase: `supabase.auth.signUp({ email, password, options: { data: { display_name } } })`. The profiles trigger copies `raw_user_meta_data.display_name`. The client asks once per session for a name when `display_name` is empty or equals the email's local part, then sends `PATCH /api/me`.
 
 ### GET /api/me
 → `{ id, email, display_name, avatar_url, timezone }`
@@ -152,6 +154,8 @@ DeviceSummary & {
   reminder_time: string | null     // habit: "HH:MM" daily nudge time, null = no reminder
   habit_label: string | null       // habit: name in copy ("creatine"); null → device name
   habit_action: string | null      // habit: feed/notification verb phrase ("took creatine"); null → "completed <habit>"
+  person_name: string | null       // care: who takes the meds ("Grandma"); alerts use it instead of the owner's account name
+  person_pronoun: "her" | "his" | "their" | null   // care: "Grandma took her 8 AM meds" (null → "their")
   pairing_code: string | null      // only included for the owner
   created_at: string
   claimed_at: string
@@ -163,7 +167,7 @@ DeviceSummary & {
 ```
 
 ### PATCH /api/devices/:id  (owner)
-body `{ name?, mode?, armed?, silent?, tone?, group_id?: string|null, container_type?, icon?: string|null, timezone?: IANA string, reminder_time?: "HH:MM"|null, habit_label?: string|null, habit_action?: string|null }`
+body `{ name?, mode?, armed?, silent?, tone?, group_id?: string|null, container_type?, icon?: string|null, timezone?: IANA string, reminder_time?: "HH:MM"|null, habit_label?: string|null, habit_action?: string|null, person_name?: string (1-40)|null, person_pronoun?: "her"|"his"|"their"|null }`
 → `DeviceDetail`. Side effects: `mode` change → `mode_changed` event; `armed` change → `armed`/`disarmed` event; then the LED is recomputed for the current mode (any field can change it, e.g. `silent`, `reminder_time`).
 `group_id` must be a group the caller belongs to.
 

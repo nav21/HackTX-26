@@ -2,14 +2,18 @@ import { useRef, useState } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { Check, ChevronLeft } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
+import { toast } from "sonner"
+import { useQueryClient } from "@tanstack/react-query"
+import { CarePersonFields } from "@/components/device/CarePerson"
 import InlineError from "@/components/common/InlineError"
 import VirtualBox from "@/components/VirtualBox"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import api from "@/lib/api"
 import { errorCode, errorMessage } from "@/lib/errors"
 import { CONTAINER_ORDER, CONTAINERS, MODE_ORDER, MODES } from "@/lib/modes"
-import { useClaimDevice } from "@/lib/queries"
+import { keys, useClaimDevice } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 
 const STEPS = ["Pair", "Name", "Mode"]
@@ -150,6 +154,9 @@ export default function Claim({ embedded = false }) {
   const [name, setName] = useState("")
   const [container, setContainer] = useState("pillbox")
   const [mode, setMode] = useState(null)
+  const [personName, setPersonName] = useState("")
+  const [personPronoun, setPersonPronoun] = useState("their")
+  const qc = useQueryClient()
   const [error, setError] = useState(null)
   const [codeError, setCodeError] = useState(null)
 
@@ -165,6 +172,16 @@ export default function Claim({ embedded = false }) {
         mode,
         container_type: container,
       })
+      const person = personName.trim()
+      if (mode === "care" && person) {
+        // claim doesn't take these; set them right after (owner PATCH)
+        try {
+          const { data } = await api.patch(`/api/devices/${device.id}`, { person_name: person, person_pronoun: personPronoun })
+          if (data?.id) qc.setQueryData(keys.device(device.id), data)
+        } catch (err) {
+          toast.error(errorMessage(err, `Paired, but couldn't save ${person}'s name. Add it in settings.`))
+        }
+      }
       navigate(`/app/devices/${device.id}`, { replace: true, state: { justClaimed: true } })
     } catch (err) {
       const c = errorCode(err)
@@ -324,6 +341,30 @@ export default function Claim({ embedded = false }) {
                       />
                     ))}
                   </div>
+                  <AnimatePresence initial={false}>
+                    {mode === "care" ? (
+                      <motion.div
+                        key="care-person"
+                        initial={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                        className="overflow-hidden"
+                        data-mode="care"
+                      >
+                        <div className="rounded-card border border-line bg-surface p-4">
+                          <CarePersonFields
+                            idPrefix="claim"
+                            label="Who takes these meds? (optional)"
+                            name={personName}
+                            pronoun={personPronoun}
+                            onNameChange={setPersonName}
+                            onPronounChange={setPersonPronoun}
+                          />
+                        </div>
+                      </motion.div>
+                    ) : null}
+                  </AnimatePresence>
                   {error ? <InlineError message={error} onRetry={finish} /> : null}
                 </>
               ) : null}

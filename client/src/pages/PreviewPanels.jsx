@@ -3,7 +3,10 @@
 // Mounted at /styleguide/panels.
 import { useState } from "react"
 import { Box } from "lucide-react"
+import { CarePersonFields } from "@/components/device/CarePerson"
 import DeviceView from "@/components/device/DeviceView"
+import NameDialog from "@/components/shell/NameDialog"
+import ProfileMenu from "@/components/shell/ProfileMenu"
 import { VerifiedBadgeView } from "@/components/device/VerifiedBadge"
 import PanelPreview from "@/components/panels/PanelPreview"
 import { Button } from "@/components/ui/button"
@@ -138,6 +141,58 @@ function PhonePanel({ mode, now }) {
   )
 }
 
+function NamesSection() {
+  const [name, setName] = useState("navsh001")
+  const [dialog, setDialog] = useState(null) // "prompt" | "edit" | null
+  const [person, setPerson] = useState("")
+  const [pronoun, setPronoun] = useState("her")
+  const save = async (value) => {
+    await new Promise((r) => setTimeout(r, 500))
+    setName(value)
+  }
+  return (
+    <section className="flex flex-col gap-6 border-t border-line pt-12" aria-labelledby="names-h">
+      <div>
+        <h2 id="names-h" className="font-display text-xl font-medium">
+          Names
+        </h2>
+        <p className="mt-1 max-w-xl text-sm text-subtle">
+          The one-time prompt on /app (shown when the name is empty or just the email's first part), the profile menu
+          editor, and the Care "who takes these" fields from the claim flow.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-surface p-6">
+          <ProfileMenu name={name} email="navsh001@gmail.com" onEditName={() => setDialog("edit")} onSignOut={() => {}} />
+          <span className="text-sm text-subtle">Signed in as {name}</span>
+          <Button variant="secondary" onClick={() => setDialog("prompt")}>
+            Show name prompt
+          </Button>
+        </div>
+        <div data-mode="care" className="rounded-card border border-line bg-surface p-6">
+          <CarePersonFields
+            label="Who takes these meds? (optional)"
+            name={person}
+            pronoun={pronoun}
+            onNameChange={setPerson}
+            onPronounChange={setPronoun}
+          />
+        </div>
+      </div>
+      <NameDialog
+        open={dialog === "prompt"}
+        onOpenChange={(o) => !o && setDialog(null)}
+        initial=""
+        title="What should people call you?"
+        description="Your family and friends see this in alerts."
+        cancelLabel="Later"
+        onSave={save}
+      />
+      <NameDialog open={dialog === "edit"} onOpenChange={(o) => !o && setDialog(null)} initial={name} onSave={save} />
+    </section>
+  )
+}
+
 export default function PreviewPanels() {
   const now = useNow(15_000)
   return (
@@ -159,6 +214,7 @@ export default function PreviewPanels() {
           ))}
         </div>
       </section>
+      <NamesSection />
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Plus, Users } from "lucide-react"
 import { Link } from "react-router-dom"
 import EmptyState from "@/components/common/EmptyState"
@@ -6,12 +7,29 @@ import AddDeviceCard from "@/components/device/AddDeviceCard"
 import DeviceCard, { DeviceCardSkeleton } from "@/components/device/DeviceCard"
 import GroupsList from "@/components/device/GroupsList"
 import GroupJoinCreate from "@/components/group/GroupJoinCreate"
+import NameDialog from "@/components/shell/NameDialog"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/context/AuthContext"
 import { useNow } from "@/hooks/useNow"
 import { errorMessage } from "@/lib/errors"
-import { useDevices, useGroups, useMe, useRefreshGroups } from "@/lib/queries"
+import { needsName, useDevices, useGroups, useMe, useRefreshGroups, useUpdateMe } from "@/lib/queries"
+
+const NAME_PROMPT_KEY = "bws.namePromptDismissed"
+function promptDismissed() {
+  try {
+    return sessionStorage.getItem(NAME_PROMPT_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+function dismissPrompt() {
+  try {
+    sessionStorage.setItem(NAME_PROMPT_KEY, "1")
+  } catch {
+    // storage blocked: the prompt just comes back next visit
+  }
+}
 
 function greeting(date = new Date()) {
   const h = date.getHours()
@@ -52,7 +70,10 @@ export default function DevicesHome() {
   const groups = useGroups()
   const refreshGroups = useRefreshGroups()
   const now = useNow()
-  const name = me?.display_name?.split(" ")[0]
+  const updateMe = useUpdateMe()
+  const [dismissed, setDismissed] = useState(promptDismissed)
+  const askName = !dismissed && needsName(me)
+  const name = needsName(me) ? null : me?.display_name?.split(" ")[0]
   const devices = q.data ?? []
 
   return (
@@ -130,6 +151,20 @@ export default function DevicesHome() {
           }
         />
       ) : null}
+
+      <NameDialog
+        open={askName}
+        onOpenChange={(open) => {
+          if (open) return
+          dismissPrompt()
+          setDismissed(true)
+        }}
+        initial=""
+        title="What should people call you?"
+        description="Your family and friends see this in alerts."
+        cancelLabel="Later"
+        onSave={(display_name) => updateMe.mutateAsync({ display_name })}
+      />
     </div>
   )
 }

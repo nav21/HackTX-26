@@ -69,3 +69,10 @@ export const ROLES = {
   caregiver: { label: "Caregiver", blurb: "Gets updates and alerts" },
   viewer: { label: "Viewer", blurb: "Can see activity" },
 }
+
+/** Care: who takes the meds. Used in alerts ("Grandma took her 8 AM meds"). */
+export const PRONOUNS = [
+  { id: "her", label: "her" },
+  { id: "his", label: "his" },
+  { id: "their", label: "their" },
+]

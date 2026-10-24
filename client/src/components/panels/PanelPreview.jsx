@@ -12,6 +12,7 @@
  */
 import { useState } from "react"
 import { toast } from "sonner"
+import { CarePersonDialog } from "@/components/device/CarePerson"
 import { CarePanelView } from "@/components/panels/CarePanel"
 import { HabitPanelView } from "@/components/panels/HabitPanel"
 import { SecurityPanelView } from "@/components/panels/SecurityPanel"
@@ -33,7 +34,23 @@ function CarePreview({ device, onPatch, canManage }) {
   const [summary, setSummary] = useState(panelSummary)
   const [generating, setGenerating] = useState(false)
   const [pendingId, setPendingId] = useState(null)
+  const [editingPerson, setEditingPerson] = useState(false)
+  const [demoPending, setDemoPending] = useState(false)
   const schedules = device.schedules ?? []
+
+  async function runDemo() {
+    setDemoPending(true)
+    await wait(800)
+    const at = new Date(Date.now() + 90_000)
+    const hhmm = `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`
+    const doses = (device.doses_today ?? []).map((d) => (d.status === "upcoming" ? { ...d, time_of_day: hhmm } : d))
+    onPatch({ doses_today: doses })
+    setDemoPending(false)
+    const [h, m] = hhmm.split(":").map(Number)
+    toast.success(`Next dose moved to ${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}.`, {
+      description: "Reminder in about a minute.",
+    })
+  }
 
   async function generate() {
     setGenerating(true)
@@ -46,7 +63,7 @@ function CarePreview({ device, onPatch, canManage }) {
     setPendingId(dose.id)
     await wait(700)
     const doses = device.doses_today.map((d) =>
-      d.id === dose.id ? { ...d, status: "taken", source: "manual", opened_at: new Date().toISOString() } : d
+      d.id === dose.id ? { ...d, status: "taken", source: "manual", opened_at: new Date().toISOString() } : d,
     )
     onPatch({ doses_today: doses, today: { ...device.today, taken: device.today.taken + 1 } })
     setPendingId(null)
@@ -55,39 +72,62 @@ function CarePreview({ device, onPatch, canManage }) {
 
   const setSchedules = (next) => onPatch({ schedules: next })
   return (
-    <CarePanelView
-      device={device}
-      canManage={canManage}
-      history={{ doses: panelDoseHistory }}
-      summary={{ insight: summary, onGenerate: generate, generating }}
-      onManual={markManual}
-      manualPendingId={pendingId}
-      schedule={{
-        onCreate: async (body) => {
+    <>
+      <CarePersonDialog
+        open={editingPerson}
+        onOpenChange={setEditingPerson}
+        device={device}
+        onSave={async (patch) => {
           await wait(500)
-          setSchedules([...schedules, { window_before_min: 60, grace_min: 30, escalate_after_min: 30, active: true, ...body, id: `s${++seq}` }])
-        },
-        onUpdate: async (id, patch) => {
-          await wait(400)
-          setSchedules(schedules.map((s) => (s.id === id ? { ...s, ...patch } : s)))
-        },
-        onDelete: async (id) => {
-          await wait(400)
-          setSchedules(schedules.filter((s) => s.id !== id))
-        },
-      }}
-      onParse={async (text) => {
-        await wait(1200)
-        return sampleParse(text)
-      }}
-      onConfirm={async (items) => {
-        await wait(700)
-        setSchedules([
-          ...schedules,
-          ...items.map((it) => ({ window_before_min: 60, grace_min: 30, escalate_after_min: 30, active: true, ...it, id: `s${++seq}` })),
-        ])
-      }}
-    />
+          onPatch(patch)
+        }}
+      />
+      <CarePanelView
+        onEditPerson={() => setEditingPerson(true)}
+        demo={{ visible: true, onClick: runDemo, pending: demoPending }}
+        device={device}
+        canManage={canManage}
+        history={{ doses: panelDoseHistory }}
+        summary={{ insight: summary, onGenerate: generate, generating }}
+        onManual={markManual}
+        manualPendingId={pendingId}
+        schedule={{
+          onCreate: async (body) => {
+            await wait(500)
+            setSchedules([
+              ...schedules,
+              { window_before_min: 60, grace_min: 30, escalate_after_min: 30, active: true, ...body, id: `s${++seq}` },
+            ])
+          },
+          onUpdate: async (id, patch) => {
+            await wait(400)
+            setSchedules(schedules.map((s) => (s.id === id ? { ...s, ...patch } : s)))
+          },
+          onDelete: async (id) => {
+            await wait(400)
+            setSchedules(schedules.filter((s) => s.id !== id))
+          },
+        }}
+        onParse={async (text) => {
+          await wait(1200)
+          return sampleParse(text)
+        }}
+        onConfirm={async (items) => {
+          await wait(700)
+          setSchedules([
+            ...schedules,
+            ...items.map((it) => ({
+              window_before_min: 60,
+              grace_min: 30,
+              escalate_after_min: 30,
+              active: true,
+              ...it,
+              id: `s${++seq}`,
+            })),
+          ])
+        }}
+      />
+    </>
   )
 }
 

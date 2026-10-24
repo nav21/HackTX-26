@@ -3,6 +3,7 @@ import { Trash2 } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import InlineError from "@/components/common/InlineError"
+import { CarePersonForm } from "@/components/device/CarePerson"
 import MembersPanel from "@/components/device/MembersPanel"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
@@ -89,6 +90,23 @@ function NameForm({ device, canManage }) {
       ) : null}
       {error ? <InlineError message={error} /> : null}
     </form>
+  )
+}
+
+function CareSection({ device }) {
+  const update = useUpdateDevice(device.id)
+  return (
+    <section className="flex flex-col gap-3" aria-label="Care">
+      <h3 className="text-md font-semibold">Care</h3>
+      <CarePersonForm
+        key={`${device.person_name}-${device.person_pronoun}`}
+        device={device}
+        onSave={async (patch) => {
+          await update.mutateAsync(patch)
+          toast.success(patch.person_name ? `Alerts will say ${patch.person_name}` : "Name cleared")
+        }}
+      />
+    </section>
   )
 }
 
@@ -180,6 +198,12 @@ export default function DeviceSettingsSheet({ device, open, onOpenChange }) {
         <div className="flex flex-col gap-8 p-6">
           <NameForm key={device.name} device={device} canManage={canManage} />
           <Separator className="bg-line" />
+          {device.mode === "care" && canManage ? (
+            <>
+              <CareSection device={device} />
+              <Separator className="bg-line" />
+            </>
+          ) : null}
           <Members device={device} canManage={canManage} />
           {canManage ? (
             <>
