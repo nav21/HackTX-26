@@ -15,7 +15,7 @@ Product behavior lives in `SPEC.md`; this file is only the wire format.
   ```json
   { "error": { "code": "not_found", "message": "Device not found" } }
   ```
-  Codes: `bad_request` (400, zod failures add `details`), `unauthorized` (401), `forbidden` (403), `not_found` (404), `conflict` (409), `ai_unavailable` (503), `ai_failed` (502), `internal` (500).
+  Codes: `bad_request` (400, zod failures add `details`), `unauthorized` (401), `forbidden` (403), `not_found` (404), `conflict` (409), `rate_limited` (429, claim attempts), `ai_unavailable` (503), `ai_failed` (502, incl. timeouts), `internal` (500). In production 500s say only "Internal server error".
 - **Times:** timestamps are ISO 8601 UTC strings (`"2026-10-24T13:12:00.000Z"`). Dates are `"YYYY-MM-DD"` in the **device's** timezone. Times of day are `"HH:MM"` (24 h) in the device's timezone.
 - **IDs:** uuids, except `events.id`, which is a number (bigserial).
 - **Membership:** every `/api/devices/:id/*` endpoint 404s if the caller is not a member (don't leak existence). "(owner)" endpoints 403 for non-owner members.
@@ -63,7 +63,7 @@ type Event = {
 type Notification = {
   id: string
   device_id: string | null
-  kind: string                     // same vocabulary as event types, plus "group_post", "daily_summary", "offline"
+  kind: string                     // same vocabulary as event types, plus "group_post", "daily_summary", "offline", "member_added"
   title: string                    // short, human: "Grandma took her 8 AM meds"
   body: string | null              // "8:12 AM · verified by sensor"
   urgent: boolean
@@ -159,7 +159,7 @@ DeviceSummary & {
 ```
 
 ### PATCH /api/devices/:id  (owner)
-body `{ name?, mode?, armed?, silent?, tone?, group_id?: string|null, container_type?, icon?: string|null }`
+body `{ name?, mode?, armed?, silent?, tone?, group_id?: string|null, container_type?, icon?: string|null, timezone?: IANA string }`
 → `DeviceDetail`. Side effects: `mode` change → `mode_changed` event + LED reset; `armed` change → `armed`/`disarmed` event + LED.
 `group_id` must be a group the caller belongs to.
 
@@ -185,7 +185,7 @@ Errors: `404 not_found` "No BWS account with that email" · `409 conflict` alrea
 → `{ events: Event[], next_before: number | null }` newest first, `limit` max 200.
 
 ### GET /api/devices/:id/verify
-→ `{ valid: boolean, checked: number, brokenAt?: number }` (`brokenAt` = first bad event id)
+→ `{ valid: boolean, checked: number, brokenAt?: number }` (`brokenAt` = first bad event id; `checked` = events examined, including the bad one)
 
 ## Schedules (care)
 
@@ -230,7 +230,9 @@ Generates the Care daily summary now (also notifies caregivers). → `201 Insigh
 ## Simulator
 
 ### POST /api/devices/:id/simulate  (owner)
-body `{ type: "OPEN" | "CLOSE" }` → `{ event: Event, lid_state: LidState }` (source = `simulator`)
+body `{ type: "OPEN" | "CLOSE" | "HB" }` → `{ event: Event | null, lid_state: LidState }` (source = `simulator`)
+
+`HB` only bumps `last_seen_at` (returns `event: null`). The simulator page should send one every ~10 s while open so the virtual box shows `online` (status goes `offline` after 60 s of silence, and the owner gets one "offline" notification).
 
 ## Notifications
 
@@ -282,8 +284,11 @@ Moves the next active dose of a Care device to 1 minute from now with a 1-minute
 headers `X-Device-Id`, `X-Device-Secret`
 body `{ events: [{ type: "OPEN" | "CLOSE" | "HB" | "BOOT", seq: number, ldr?: number, fw_version?: string, at?: ISO string }] }` (1-100 events)
 → `{ accepted: number, duplicates: number }`
-- `at` is when the bridge read the line (defaults to server receive time).
-- Duplicates (same boot, `seq` already seen) are ignored, so the bridge can retry safely. `BOOT` resets the seq counter.
+- `seq` is required for OPEN/CLOSE/HB (one counter per boot, shared by EVT and HB, so gaps are normal). BOOT sends `seq: 0`.
+- `at` is when the bridge read the line (defaults to server receive time; clamped if > 5 min in the future). Always send it: dedupe relies on it.
+- Duplicates are ignored, so the bridge can retry safely: an event is a duplicate if `seq <= last_seq` for this boot and its `at` isn't newer than the last counted event. A lower `seq` with a newer `at` is treated as an unannounced reboot (new counter). `BOOT` resets the counter; a BOOT whose `at` isn't newer than the last boot is a duplicate.
+- Any authenticated batch bumps `last_seen_at` (and logs `online` if the device was offline). HB stores no event row.
+- 400s are permanent (the bridge drops the batch); everything else is retryable.
 
 ### GET /api/device/commands
 → `["LED,G", "CAL"]` oldest first; marks them delivered.
@@ -296,7 +301,7 @@ The client subscribes with its own session; RLS limits rows to what the user can
 
 | Table | Used for |
 | --- | --- |
-| `devices` | lid_state, led, last_seen_at, armed, mode changes (status is derived client-side from last_seen_at) |
+| `devices` | lid_state, led, last_seen_at, armed, mode changes (status is derived client-side from last_seen_at). `secret_hash` and `pairing_code` are not selectable by clients (column grants), so payloads omit them and a direct `select("*")` on devices with the anon key fails: list columns or use the API. |
 | `events` | live timeline |
 | `notifications` | toasts + bell count (filter `user_id=eq.<me>`) |
 | `dose_instances` | Care status chips |

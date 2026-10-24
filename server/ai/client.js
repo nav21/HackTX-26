@@ -18,8 +18,10 @@ export const getModel = () => process.env.MUSE_MODEL || DEFAULT_MODEL;
 export const isMockAI = () => ['true', '1'].includes(String(process.env.MOCK_AI).toLowerCase());
 
 // Errors with `expose` are safe to show the client (see the central error handler).
+// 503 = AI not configured (ai_unavailable); upstream failure, timeout or bad JSON = 502 (ai_failed).
 function aiError(message, status, cause) {
-  return Object.assign(new Error(message, { cause }), { status, expose: true });
+  const code = status === 503 ? 'ai_unavailable' : 'ai_failed';
+  return Object.assign(new Error(message, { cause }), { status, code, expose: true });
 }
 
 export function getClient() {
@@ -80,7 +82,7 @@ async function chat({ fn, system, prompt, responseFormat, timeoutMs }) {
   } catch (err) {
     if (err instanceof BadRequestError && responseFormat) throw err; // caller falls back
     console.error(`[ai] ${fn} model=${model} ms=${Date.now() - started} FAILED:`, err.message);
-    if (err instanceof APIConnectionTimeoutError) throw aiError('AI request timed out', 504, err);
+    if (err instanceof APIConnectionTimeoutError) throw aiError('AI request timed out', 502, err);
     if (err instanceof APIError) {
       throw aiError(`AI request failed${err.status ? ` (upstream ${err.status})` : ''}`, 502, err);
     }
