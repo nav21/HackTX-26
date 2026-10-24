@@ -1,49 +1,140 @@
 /**
- * SecurityPanel — main panel for a device in Security mode. THIN SHELL.
- * The next phase composes ArmToggle, LiveLidState, AccessLog, IncidentCard
- * (components/security/*) in here.
+ * SecurityPanel — the Security-mode body of the device page.
  *
- * Props
- *  device          DeviceDetail (uses armed, silent, today {alerts_today}, lid_state)
- *  canManage       boolean — caller is the owner (can arm / disarm)
- *  onToggleArmed   (nextArmed: boolean) => void
- *  pending         boolean — an arm/disarm request is in flight
- *  className
+ * Arm / disarm + silent alarm · live lid read-out · latest AI incident summary.
+ * The access log (`SecurityAccessLog`) takes the timeline's place in the
+ * device page's side rail, so the page has one event list, not two.
+ *
+ * `SecurityPanel` wires the PATCHes and the incident fetch.
+ * `SecurityPanelView` is presentational, so previews can pass sample data.
+ *
+ * SecurityPanel props:     device (DeviceDetail), canManage (owner?), events (Event[] newest first), now
+ * SecurityPanelView props: device, canManage, events, now,
+ *   onArmedChange(next), onSilentChange(next), pending, armError, onArmRetry
+ *   incident { insight, loading, error, onRetry }                GET /insights?kind=incident&limit=1
+ * SecurityAccessLog: lid / alert / arm events by default, "All activity" toggle.
+ *   props: device, timeline { events, loading, error, onRetry, hasMore, onLoadMore, loadingMore },
+ *   verifyBadge (node)
  */
-import { ShieldCheck, ShieldOff } from "lucide-react"
-import BigStat from "@/components/common/BigStat"
-import Surface from "@/components/common/Surface"
-import { Button } from "@/components/ui/button"
+import { useState } from "react"
+import AccessLog from "@/components/security/AccessLog"
+import ArmToggle from "@/components/security/ArmToggle"
+import IncidentCard from "@/components/security/IncidentCard"
+import LiveLidState from "@/components/security/LiveLidState"
+import { errorMessage } from "@/lib/errors"
+import { SECURITY_EVENT_TYPES } from "@/lib/events"
+import { deriveStatus } from "@/lib/format"
+import { useLatestInsight, useUpdateDevice } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 
-export default function SecurityPanel({ device, canManage = false, onToggleArmed, pending = false, className }) {
-  const armed = Boolean(device?.armed)
-  const alerts = device?.today?.alerts_today ?? 0
+const OPENINGS = new Set(["opened", "alert"])
+
+export function SecurityPanelView({
+  device,
+  canManage = false,
+  events = [],
+  now,
+  onArmedChange,
+  onSilentChange,
+  pending = false,
+  armError = null,
+  onArmRetry,
+  incident = {},
+  className,
+}) {
+  const tz = device?.timezone
+  const lastOpenedAt = events.find((e) => OPENINGS.has(e.type))?.occurred_at ?? null
+  const lastClosedAt = events.find((e) => e.type === "closed")?.occurred_at ?? null
+
   return (
-    <Surface className={cn("@container flex flex-col gap-6", className)}>
-      <BigStat
-        value={armed ? "Armed" : "Disarmed"}
-        tone={armed ? "accent" : "neutral"}
-        caption={
-          armed
-            ? alerts
-              ? `${alerts} ${alerts === 1 ? "alert" : "alerts"} today`
-              : "Any opening sends an alert right away."
-            : "Openings are logged, but no one is alerted."
-        }
+    <div className={cn("@container flex flex-col gap-6", className)}>
+      <div className="grid grid-cols-1 gap-6 @[44rem]:grid-cols-2">
+        <ArmToggle
+          armed={Boolean(device?.armed)}
+          silent={Boolean(device?.silent)}
+          onArmedChange={onArmedChange}
+          onSilentChange={onSilentChange}
+          pending={pending}
+          disabled={!canManage}
+          error={armError}
+          onRetry={onArmRetry}
+        />
+        <LiveLidState
+          lidState={device?.lid_state}
+          lastOpenedAt={lastOpenedAt}
+          lastClosedAt={lastClosedAt}
+          armed={Boolean(device?.armed)}
+          status={deriveStatus(device, now)}
+          lastSeenAt={device?.last_seen_at}
+          timeZone={tz}
+        />
+      </div>
+      <IncidentCard
+        insight={incident.insight ?? null}
+        timeZone={tz}
+        loading={incident.loading}
+        error={incident.error}
+        onRetry={incident.onRetry}
       />
-      {canManage ? (
-        <Button
-          size="lg"
-          variant={armed ? "secondary" : "default"}
-          onClick={() => onToggleArmed?.(!armed)}
-          disabled={pending}
-          className="self-start"
-        >
-          {armed ? <ShieldOff aria-hidden /> : <ShieldCheck aria-hidden />}
-          {armed ? "Disarm" : "Arm"}
-        </Button>
-      ) : null}
-    </Surface>
+    </div>
+  )
+}
+
+/** The Security access log, fed by the device page's events query. */
+export function SecurityAccessLog({ device, timeline = {}, verifyBadge, className }) {
+  return (
+    <AccessLog
+      events={timeline.events ?? []}
+      focusTypes={SECURITY_EVENT_TYPES}
+      headerAction={verifyBadge}
+      onLoadMore={timeline.onLoadMore}
+      hasMore={Boolean(timeline.hasMore)}
+      loadingMore={timeline.loadingMore}
+      timeZone={device?.timezone}
+      loading={timeline.loading}
+      error={timeline.error}
+      onRetry={timeline.onRetry}
+      className={className}
+    />
+  )
+}
+
+export default function SecurityPanel({ device, canManage = false, events = [], now, className }) {
+  const id = device?.id
+  const update = useUpdateDevice(id)
+  const incident = useLatestInsight(id, "incident")
+  const [lastPatch, setLastPatch] = useState(null)
+
+  function send(patch) {
+    setLastPatch(patch)
+    update.mutate(patch)
+  }
+
+  const failed = update.isError
+    ? errorMessage(
+        update.error,
+        "armed" in (lastPatch ?? {}) ? (lastPatch.armed ? "Couldn't arm it." : "Couldn't disarm it.") : "Couldn't save that."
+      )
+    : null
+
+  return (
+    <SecurityPanelView
+      device={device}
+      canManage={canManage}
+      events={events}
+      now={now}
+      className={className}
+      onArmedChange={(armed) => send({ armed })}
+      onSilentChange={(silent) => send({ silent })}
+      pending={update.isPending}
+      armError={failed}
+      onArmRetry={lastPatch ? () => send(lastPatch) : undefined}
+      incident={{
+        insight: incident.data ?? null,
+        loading: incident.isLoading,
+        error: incident.error ? errorMessage(incident.error, "Couldn't load the latest incident.") : null,
+        onRetry: () => incident.refetch(),
+      }}
+    />
   )
 }

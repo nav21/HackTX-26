@@ -1,76 +1,41 @@
+import { useState } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
-import {
-  ArrowLeftRight,
-  BellRing,
-  Circle,
-  History,
-  LoaderCircle,
-  Lock,
-  LockOpen,
-  Package,
-  PackageOpen,
-  Power,
-  Siren,
-  Wifi,
-  WifiOff,
-} from "lucide-react"
+import { History, LoaderCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { describeEvent } from "@/lib/events"
 import { formatClock, groupByDay } from "@/lib/format"
-import { MODES } from "@/lib/modes"
+import SourceTag from "@/components/device/SourceTag"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState, ErrorState, PanelCard, PanelHeader } from "@/components/care/states"
 
-const TYPES = {
-  opened: { icon: PackageOpen, title: () => "Opened" },
-  closed: { icon: Package, title: () => "Closed" },
-  alert: { icon: Siren, title: () => "Opened while armed", alert: true },
-  alert_still_open: { icon: BellRing, title: () => "Still open while armed", alert: true },
-  armed: { icon: Lock, title: () => "Armed" },
-  disarmed: { icon: LockOpen, title: () => "Disarmed" },
-  mode_changed: { icon: ArrowLeftRight, title: (p) => `Switched to ${MODES[p?.to]?.label ?? "a new mode"}` },
-  offline: { icon: WifiOff, title: () => "Went offline" },
-  online: { icon: Wifi, title: () => "Back online" },
-  boot: { icon: Power, title: () => "Box restarted" },
-}
+const ALERTS = new Set(["alert", "alert_still_open"])
 
-const SOURCE = {
-  device: "Sensor",
-  simulator: "Simulator",
-  server: "App",
-  manual: "Self-reported",
-}
-
+// Same microcopy and source tags as the device timeline (lib/events.js).
 function EventRow({ event, timeZone, reduce }) {
-  const t = TYPES[event.type] ?? { icon: Circle, title: () => event.type.replace(/_/g, " ") }
-  const Icon = t.icon
-  const silent = t.alert && event.payload?.silent
+  const { title, detail, icon: Icon } = describeEvent(event)
+  const alert = ALERTS.has(event.type)
   return (
     <motion.li
       layout={reduce ? false : "position"}
       initial={reduce ? false : { opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-      className={cn(
-        "flex items-center gap-3 rounded-inner px-3 py-2.5",
-        t.alert ? "bg-danger/10 ring-1 ring-danger/25" : "",
-      )}
+      className={cn("flex items-center gap-3 rounded-inner px-3 py-2.5", alert ? "bg-danger/10 ring-1 ring-danger/25" : "")}
     >
       <span
         className={cn(
           "grid size-8 shrink-0 place-items-center rounded-pill",
-          t.alert ? "bg-danger/15 text-danger" : "bg-raised text-subtle",
+          alert ? "bg-danger/15 text-danger" : "bg-raised text-subtle",
         )}
       >
         <Icon className="size-4" aria-hidden />
       </span>
       <div className="min-w-0 flex-1">
-        <p className={cn("truncate text-sm font-medium", t.alert ? "text-danger" : "text-text")}>
-          {t.title(event.payload)}
-        </p>
-        <p className="flex flex-wrap items-center gap-x-2 text-xs text-subtle">
-          <span>{SOURCE[event.source] ?? event.source}</span>
-          {silent ? <span className="rounded-pill px-1.5 ring-1 ring-line">Silent alarm</span> : null}
+        <p className={cn("truncate text-sm font-medium", alert ? "text-danger" : "text-text")}>{title}</p>
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-subtle">
+          <SourceTag source={event.source} />
+          {detail ? <span>{detail}</span> : null}
         </p>
       </div>
       <time dateTime={event.occurred_at} className="shrink-0 text-xs text-subtle tabular">
@@ -80,12 +45,39 @@ function EventRow({ event, timeZone, reduce }) {
   )
 }
 
+function ScopeToggle({ all, onChange }) {
+  const options = [
+    [false, "Security"],
+    [true, "All activity"],
+  ]
+  return (
+    <div role="group" aria-label="Which events" className="inline-flex self-start rounded-pill bg-raised p-0.5">
+      {options.map(([value, label]) => (
+        <button
+          key={label}
+          type="button"
+          aria-pressed={all === value}
+          onClick={() => onChange(value)}
+          className={cn(
+            "h-7 cursor-pointer rounded-pill px-3 text-xs font-medium transition-colors duration-150",
+            all === value ? "bg-surface text-text shadow-raised" : "text-subtle hover:text-text",
+          )}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 /**
  * Compact access log for the Security panel. Alerts are highlighted.
  *
  * Props
  * - events: Event[] newest first (GET /devices/:id/events; prepend realtime inserts)
  * - types: optional allow-list of event types to show (default: everything passed in)
+ * - focusTypes: optional default filter with a "Security / All activity" toggle
+ *               (pass SECURITY_EVENT_TYPES from lib/events); ignored when `types` is set
  * - headerAction: node for the header's right side — put the shared <VerifiedBadge /> here
  * - onLoadMore, hasMore (= next_before != null), loadingMore
  * - timeZone, loading, error, onRetry
@@ -93,6 +85,7 @@ function EventRow({ event, timeZone, reduce }) {
 export default function AccessLog({
   events = [],
   types,
+  focusTypes,
   headerAction,
   onLoadMore,
   hasMore = false,
@@ -105,7 +98,10 @@ export default function AccessLog({
   className,
 }) {
   const reduce = useReducedMotion()
-  const list = types ? events.filter((e) => types.includes(e.type)) : events
+  const [all, setAll] = useState(false)
+  const allow = types ?? (focusTypes && !all ? focusTypes : null)
+  const list = allow ? events.filter((e) => allow.includes(e.type)) : events
+  const hidden = events.length - list.length
   const groups = groupByDay(list, (e) => e.occurred_at, timeZone)
 
   let body
@@ -130,8 +126,12 @@ export default function AccessLog({
     body = (
       <EmptyState
         icon={History}
-        title="Nothing logged yet"
-        body="Every open, close, arm and disarm shows up here, in order."
+        title={hidden ? "Quiet so far" : "Nothing logged yet"}
+        body={
+          hidden
+            ? `${hidden} other ${hidden === 1 ? "event is" : "events are"} under All activity.`
+            : "Every open, close, arm and disarm shows up here, in order."
+        }
       />
     )
   } else {
@@ -149,12 +149,6 @@ export default function AccessLog({
             </ul>
           </section>
         ))}
-        {hasMore && onLoadMore ? (
-          <Button variant="ghost" size="sm" className="self-center" onClick={onLoadMore} disabled={loadingMore}>
-            {loadingMore ? <LoaderCircle className="animate-spin" aria-hidden /> : null}
-            {loadingMore ? "Loading…" : "Show older"}
-          </Button>
-        ) : null}
       </div>
     )
   }
@@ -162,7 +156,14 @@ export default function AccessLog({
   return (
     <PanelCard className={className} aria-labelledby="access-log-title">
       <PanelHeader id="access-log-title" icon={History} title={title} action={headerAction} />
+      {focusTypes && !types && !loading && !error ? <ScopeToggle all={all} onChange={setAll} /> : null}
       {body}
+      {hasMore && onLoadMore && !loading && !error ? (
+        <Button variant="ghost" size="sm" className="self-center" onClick={onLoadMore} disabled={loadingMore}>
+          {loadingMore ? <LoaderCircle className="animate-spin" aria-hidden /> : null}
+          {loadingMore ? "Loading…" : "Show older"}
+        </Button>
+      ) : null}
     </PanelCard>
   )
 }

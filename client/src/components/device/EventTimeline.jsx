@@ -3,27 +3,10 @@ import InlineError from "@/components/common/InlineError"
 import VirtualBox from "@/components/VirtualBox"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { describeEvent, SOURCE_LABELS, TONE_CLASSES } from "@/lib/events"
+import SourceTag from "@/components/device/SourceTag"
+import { describeEvent, TONE_CLASSES } from "@/lib/events"
 import { formatClock, groupByDay, relativeTime } from "@/lib/format"
 import { cn } from "@/lib/utils"
-
-function SourceTag({ source }) {
-  const label = SOURCE_LABELS[source]
-  if (!label) return null
-  return (
-    <span
-      className={cn(
-        "inline-flex h-5 items-center rounded-pill border px-2 text-xs leading-none",
-        source === "device" && "border-success/30 text-success",
-        source === "simulator" && "border-info/30 text-info",
-        source === "manual" && "border-dashed border-warning/50 text-warning",
-        source === "server" && "border-line text-faint"
-      )}
-    >
-      {label}
-    </span>
-  )
-}
 
 function EventRow({ event, timeZone, now, last }) {
   const reduce = useReducedMotion()

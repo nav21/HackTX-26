@@ -105,3 +105,6 @@ export const TONE_CLASSES = {
   danger: "text-danger bg-danger/12",
   info: "text-info bg-info/12",
 }
+
+/** What Security cares about by default: the lid, alerts, arming. */
+export const SECURITY_EVENT_TYPES = ["opened", "closed", "alert", "alert_still_open", "armed", "disarmed"]

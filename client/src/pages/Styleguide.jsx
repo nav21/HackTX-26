@@ -21,9 +21,7 @@ import ModeBadge from "@/components/device/ModeBadge"
 import ModeSwitcher from "@/components/device/ModeSwitcher"
 import StatusPill from "@/components/device/StatusPill"
 import { VerifiedBadgeView } from "@/components/device/VerifiedBadge"
-import CarePanel from "@/components/panels/CarePanel"
-import HabitPanel from "@/components/panels/HabitPanel"
-import SecurityPanel from "@/components/panels/SecurityPanel"
+import PanelPreview from "@/components/panels/PanelPreview"
 import { NotificationBellView } from "@/components/shell/NotificationBell"
 import VirtualBox from "@/components/VirtualBox"
 import { Button } from "@/components/ui/button"
@@ -209,7 +207,7 @@ function TypeSection() {
 
 function ShapeSection() {
   return (
-    <div className="grid gap-8 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
       <Specimen label="Radius · 16 cards · 12 controls · 8 inner tiles · pill">
         <div className="size-16 rounded-card border border-line-strong bg-surface" />
         <div className="size-16 rounded-control border border-line-strong bg-surface" />
@@ -237,7 +235,7 @@ function ShapeSection() {
 function MotionSection() {
   const [mode, setMode] = useState("care")
   return (
-    <div className="grid gap-8 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
       <div className="flex flex-col gap-3 text-sm text-subtle">
         <p>
           <span className="text-text">150 ms</span> hovers and presses · <span className="text-text">200 ms</span> chip
@@ -343,7 +341,7 @@ function IndicatorsSection() {
   const [lid, setLid] = useState("closed")
   const now = sampleNow
   return (
-    <div className="grid gap-8 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
       <Specimen label="ModeBadge · sm · md">
         {MODE_ORDER.map((m) => (
           <ModeBadge key={m} mode={m} />
@@ -398,7 +396,7 @@ function ControlsSection() {
   const [mode, setMode] = useState("habit")
   const [on, setOn] = useState(true)
   return (
-    <div className="grid gap-8 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
       <Specimen label="ModeSwitcher · interactive · small · disabled (not owner)">
         <div data-mode={mode} className="flex flex-col gap-3">
           <ModeSwitcher value={mode} onChange={setMode} />
@@ -498,7 +496,7 @@ function CardsSection({ devices, now }) {
 
 function TimelineSection({ events, now }) {
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <Surface>
         <EventTimeline
           events={events}
@@ -530,7 +528,7 @@ function TimelineSection({ events, now }) {
 function MembersSection() {
   const [members, setMembers] = useState(sampleMembers)
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <Surface data-mode="care">
         <MembersPanel
           members={members}
@@ -567,32 +565,33 @@ function MembersSection() {
 
 function PanelsSection() {
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <div data-mode="care">
-        <CarePanel device={sampleDeviceDetail} canManage />
-      </div>
-      <div data-mode="habit">
-        <HabitPanel device={sampleHabitDetail} canManage />
-      </div>
-      <div data-mode="security">
-        <SecurityPanel device={{ ...sampleSecurityDetail, today: { armed: true, alerts_today: 1 } }} canManage onToggleArmed={() => {}} />
-      </div>
-      <div data-mode="care">
-        <CarePanel device={{ ...sampleDeviceDetail, doses_today: [], today: { total: 0, taken: 0, next_dose: null } }} />
-      </div>
-      <div data-mode="habit">
-        <HabitPanel device={{ ...sampleHabitDetail, streak: { current: 0, best: 11 }, today: { done: false, streak: 0 } }} />
-      </div>
-      <div data-mode="security">
-        <SecurityPanel device={{ ...sampleSecurityDetail, armed: false, today: { armed: false, alerts_today: 0 } }} canManage onToggleArmed={() => {}} />
+    <div className="flex flex-col gap-4">
+      <p className="max-w-2xl text-sm text-subtle">
+        The full Care, Habit and Security panels, on sample data. Every role and the phone layout are on{" "}
+        <Link to="/styleguide/panels" className="text-accent underline-offset-4 hover:underline">
+          /styleguide/panels
+        </Link>
+        .
+      </p>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        {[sampleDeviceDetail, sampleHabitDetail, { ...sampleSecurityDetail, role: "owner" }].map((d) => (
+          <div key={d.id} data-mode={d.mode}>
+            <PanelSample device={d} />
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
+function PanelSample({ device: initial }) {
+  const [device, setDevice] = useState(initial)
+  return <PanelPreview device={device} onPatch={(p) => setDevice((d) => ({ ...d, ...p }))} events={sampleSecurityEvents} />
+}
+
 function StatesSection() {
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <div className="rounded-card border border-line bg-surface">
         <EmptyState
           boxSize="lg"
@@ -647,7 +646,7 @@ function DevicePageSection({ now }) {
       now={now}
       canManage
       onModeChange={(mode) => setDevice((d) => ({ ...d, mode, ...(mode === "habit" ? sampleHabitDetailPart : mode === "security" ? sampleSecurityPart : {}) }))}
-      onToggleArmed={(armed) => setDevice((d) => ({ ...d, armed, today: { ...d.today, armed } }))}
+      panel={<PanelPreview device={device} onPatch={(p) => setDevice((d) => ({ ...d, ...p }))} events={events} now={now} />}
       onOpenSettings={() => {}}
       simulatorTo="#simulator"
       backTo="#device-page"

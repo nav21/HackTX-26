@@ -10,9 +10,10 @@
  *  verifyBadge     node (VerifiedBadge) shown on top of the timeline
  *  canManage       owner?
  *  onModeChange    (mode) => void
- *  onToggleArmed   (armed) => void · armPending
  *  onOpenSettings  () => void
- *  panel           node — overrides the default ModePanel
+ *  panel           node — overrides the default (connected) ModePanel; previews
+ *                  pass a *PanelView with sample data here
+ *  In Security mode the rail shows the access log instead of the timeline.
  *  backTo          link for "Devices"
  */
 import { ChevronLeft, MonitorSmartphone, Settings2 } from "lucide-react"
@@ -23,7 +24,8 @@ import LidIndicator from "@/components/device/LidIndicator"
 import LiveBoxCard from "@/components/device/LiveBoxCard"
 import ModeSwitcher from "@/components/device/ModeSwitcher"
 import StatusPill from "@/components/device/StatusPill"
-import ModePanel from "@/components/panels/ModePanel"
+import ModePanel, { ModeTransition } from "@/components/panels/ModePanel"
+import { SecurityAccessLog } from "@/components/panels/SecurityPanel"
 import Surface from "@/components/common/Surface"
 import { Button } from "@/components/ui/button"
 import { deriveStatus } from "@/lib/format"
@@ -37,8 +39,6 @@ export default function DeviceView({
   verifyBadge,
   canManage = false,
   onModeChange,
-  onToggleArmed,
-  armPending = false,
   onOpenSettings,
   panel,
   backTo = "/app",
@@ -111,25 +111,33 @@ export default function DeviceView({
       <div className="mt-8 grid grid-cols-1 gap-6 @[52rem]:grid-cols-[minmax(0,1fr)_var(--bws-rail-width)]">
         <div className="flex min-w-0 flex-col gap-6">
           <LiveBoxCard device={device} lastOpenedAt={lastOpenedAt} now={now} />
-          {panel ?? (
-            <ModePanel device={device} canManage={canManage} onToggleArmed={onToggleArmed} pending={armPending} />
+          {panel ? (
+            <ModeTransition mode={device.mode}>{panel}</ModeTransition>
+          ) : (
+            <ModePanel device={device} canManage={canManage} events={events} now={now} />
           )}
         </div>
         <aside className="min-w-0 @[52rem]:sticky @[52rem]:top-24 @[52rem]:self-start">
-          <Surface>
-            <EventTimeline
-              events={events}
-              loading={timeline.loading}
-              error={timeline.error}
-              onRetry={timeline.onRetry}
-              hasMore={timeline.hasMore}
-              onLoadMore={timeline.onLoadMore}
-              loadingMore={timeline.loadingMore}
-              timeZone={device.timezone}
-              now={now}
-              header={verifyBadge}
-            />
-          </Surface>
+          <ModeTransition mode={device.mode === "security" ? "security" : "log"}>
+            {device.mode === "security" ? (
+              <SecurityAccessLog device={device} timeline={timeline} verifyBadge={verifyBadge} />
+            ) : (
+              <Surface>
+                <EventTimeline
+                  events={events}
+                  loading={timeline.loading}
+                  error={timeline.error}
+                  onRetry={timeline.onRetry}
+                  hasMore={timeline.hasMore}
+                  onLoadMore={timeline.onLoadMore}
+                  loadingMore={timeline.loadingMore}
+                  timeZone={device.timezone}
+                  now={now}
+                  header={verifyBadge}
+                />
+              </Surface>
+            )}
+          </ModeTransition>
         </aside>
       </div>
     </div>

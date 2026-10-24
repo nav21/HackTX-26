@@ -14,7 +14,7 @@ import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { useAuth } from "@/context/AuthContext"
 import { supabase } from "@/lib/supabase"
-import { keys, patchDeviceCaches, prependEvent } from "@/lib/queries"
+import { careKeys, keys, patchDeviceCaches, prependEvent } from "@/lib/queries"
 import { showBrowserNotification } from "@/lib/browserNotifications"
 
 const RealtimeContext = createContext("disabled")
@@ -32,6 +32,7 @@ const DEVICE_FIELDS = [
   "icon",
   "group_id",
 ]
+const DOSE_EVENTS = new Set(["dose_taken", "dose_late", "dose_missed", "manual_taken"])
 // events whose meaning changes the device's "today" state
 const STATEFUL_EVENTS = new Set([
   "reminder_sent",
@@ -73,15 +74,15 @@ export function RealtimeProvider({ children }) {
 
     // coalesce bursts of invalidations (e.g. dose + event + device row together)
     const timers = new Map()
-    const invalidateSoon = (queryKey) => {
-      const k = JSON.stringify(queryKey)
+    const invalidateSoon = (queryKey, delay = 250) => {
+      const k = `${JSON.stringify(queryKey)}@${delay}`
       clearTimeout(timers.get(k))
       timers.set(
         k,
         setTimeout(() => {
           timers.delete(k)
           qc.invalidateQueries({ queryKey })
-        }, 250)
+        }, delay)
       )
     }
 
@@ -116,6 +117,13 @@ export function RealtimeProvider({ children }) {
         invalidateSoon(keys.devices)
         invalidateSoon(keys.device(row.device_id))
       }
+      // ai_insights isn't on realtime: the incident summary is written a few
+      // seconds after an armed opening, so look again shortly after.
+      if (row.type === "alert" || row.type === "alert_still_open") {
+        for (const ms of [250, 5000, 15000]) invalidateSoon(careKeys.insights(row.device_id, "incident"), ms)
+      }
+      if (DOSE_EVENTS.has(row.type)) invalidateSoon(careKeys.doses(row.device_id))
+      if (row.type === "habit_done" || row.type === "streak_broken") invalidateSoon(careKeys.streak(row.device_id))
     }
 
     const onNotification = ({ eventType, new: row }) => {
@@ -134,6 +142,7 @@ export function RealtimeProvider({ children }) {
         if (row.urgent) toast.error(row.title, { ...opts, duration: Infinity, closeButton: true })
         else toast(row.title, { ...opts, duration: 6000 })
         showBrowserNotification(row, go)
+        if (row.kind === "daily_summary" && row.device_id) invalidateSoon(careKeys.insights(row.device_id, "daily_summary"))
       } else if (eventType === "UPDATE") {
         qc.setQueryData(keys.notifications, (old) =>
           Array.isArray(old) ? old.map((n) => (n.id === row.id ? { ...n, ...row } : n)) : old
@@ -146,7 +155,7 @@ export function RealtimeProvider({ children }) {
       if (!deviceId) return
       invalidateSoon(keys.device(deviceId))
       invalidateSoon(keys.devices)
-      invalidateSoon(["doses", deviceId])
+      invalidateSoon(careKeys.doses(deviceId))
     }
 
     const onStreak = ({ new: row, old }) => {
@@ -158,7 +167,7 @@ export function RealtimeProvider({ children }) {
         )
       }
       invalidateSoon(keys.devices)
-      invalidateSoon(["streak", deviceId])
+      invalidateSoon(careKeys.streak(deviceId))
     }
 
     const onGroupPost = ({ new: row }) => {

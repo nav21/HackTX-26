@@ -89,14 +89,6 @@ export default function DevicePage() {
     }
   }
 
-  async function toggleArmed(armed) {
-    try {
-      await update.mutateAsync({ armed })
-    } catch (err) {
-      toast.error(errorMessage(err, armed ? "Couldn't arm it." : "Couldn't disarm it."))
-    }
-  }
-
   return (
     <>
       <DeviceView
@@ -104,8 +96,6 @@ export default function DevicePage() {
         now={now}
         canManage={canManage}
         onModeChange={changeMode}
-        onToggleArmed={toggleArmed}
-        armPending={update.isPending}
         onOpenSettings={() => setSettingsOpen(true)}
         simulatorTo={`/simulator/${device.id}`}
         verifyBadge={<VerifiedBadge deviceId={device.id} />}

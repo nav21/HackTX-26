@@ -1,15 +1,17 @@
-import { Plus } from "lucide-react"
+import { Plus, Users } from "lucide-react"
 import { Link } from "react-router-dom"
 import EmptyState from "@/components/common/EmptyState"
 import InlineError from "@/components/common/InlineError"
 import AddDeviceCard from "@/components/device/AddDeviceCard"
 import DeviceCard, { DeviceCardSkeleton } from "@/components/device/DeviceCard"
+import GroupsList from "@/components/device/GroupsList"
+import GroupJoinCreate from "@/components/group/GroupJoinCreate"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/context/AuthContext"
 import { useNow } from "@/hooks/useNow"
 import { errorMessage } from "@/lib/errors"
-import { useDevices, useMe } from "@/lib/queries"
+import { useDevices, useGroups, useMe, useRefreshGroups } from "@/lib/queries"
 
 function greeting(date = new Date()) {
   const h = date.getHours()
@@ -47,6 +49,8 @@ export default function DevicesHome() {
   const { user } = useAuth()
   const { data: me } = useMe()
   const q = useDevices()
+  const groups = useGroups()
+  const refreshGroups = useRefreshGroups()
   const now = useNow()
   const name = me?.display_name?.split(" ")[0]
   const devices = q.data ?? []
@@ -105,6 +109,27 @@ export default function DevicesHome() {
       ) : (
         <DevicesGrid devices={devices} now={now} />
       )}
+
+      {devices.length || groups.data?.length ? (
+        <GroupsList
+          className="mt-4"
+          groups={groups.data ?? []}
+          loading={groups.isLoading}
+          error={groups.error ? errorMessage(groups.error, "Couldn't load your groups.") : null}
+          onRetry={() => groups.refetch()}
+          joinSlot={
+            <GroupJoinCreate
+              onDone={refreshGroups}
+              trigger={
+                <Button variant="ghost" size="sm">
+                  <Users aria-hidden />
+                  Join or create
+                </Button>
+              }
+            />
+          }
+        />
+      ) : null}
     </div>
   )
 }

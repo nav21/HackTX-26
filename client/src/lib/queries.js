@@ -92,9 +92,14 @@ export function useUpdateDevice(id) {
     onSuccess: (device) => {
       if (device?.id) qc.setQueryData(keys.device(id), device)
     },
-    onSettled: () => {
+    onSettled: (_device, _err, patch) => {
       qc.invalidateQueries({ queryKey: keys.devices })
       qc.invalidateQueries({ queryKey: keys.events(id) })
+      if (patch && "group_id" in patch) qc.invalidateQueries({ queryKey: ["groups"] })
+      if (patch && "mode" in patch) {
+        qc.invalidateQueries({ queryKey: ["streak", id] })
+        qc.invalidateQueries({ queryKey: ["doses", id] })
+      }
     },
   })
 }
@@ -232,4 +237,105 @@ export function useMarkAllRead() {
       if (ctx?.prev) qc.setQueryData(keys.notifications, ctx.prev)
     },
   })
+}
+
+// ── Care: doses, schedules ──────────────────────────────────────────
+export const careKeys = {
+  doses: (id) => ["doses", id],
+  insights: (id, kind) => ["insights", id, kind],
+  streak: (id) => ["streak", id],
+  groups: ["groups"],
+}
+
+/** GET /api/devices/:id/doses (defaults to the last 14 days). */
+export function useDoses(id, { from, to, enabled = true } = {}) {
+  return useQuery({
+    queryKey: [...careKeys.doses(id), from ?? null, to ?? null],
+    queryFn: () => get(`/api/devices/${id}/doses`, { from, to }),
+    enabled: Boolean(id) && enabled,
+  })
+}
+
+function invalidateCare(qc, id) {
+  qc.invalidateQueries({ queryKey: keys.device(id) })
+  qc.invalidateQueries({ queryKey: careKeys.doses(id) })
+  qc.invalidateQueries({ queryKey: keys.devices })
+}
+
+export function useManualDose(id) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (doseId) => api.post(`/api/devices/${id}/doses/${doseId}/manual`).then((r) => r.data),
+    onSuccess: (dose) => {
+      qc.setQueryData(keys.device(id), (d) =>
+        d?.doses_today ? { ...d, doses_today: d.doses_today.map((x) => (x.id === dose.id ? { ...x, ...dose } : x)) } : d
+      )
+      invalidateCare(qc, id)
+      qc.invalidateQueries({ queryKey: keys.events(id) })
+    },
+  })
+}
+
+export function useScheduleMutations(id) {
+  const qc = useQueryClient()
+  const done = () => invalidateCare(qc, id)
+  const create = useMutation({
+    mutationFn: (body) => api.post(`/api/devices/${id}/schedules`, body).then((r) => r.data),
+    onSuccess: done,
+  })
+  const update = useMutation({
+    mutationFn: ({ sid, patch }) => api.patch(`/api/devices/${id}/schedules/${sid}`, patch).then((r) => r.data),
+    onMutate: ({ sid, patch }) => {
+      qc.setQueryData(keys.device(id), (d) =>
+        d?.schedules ? { ...d, schedules: d.schedules.map((s) => (s.id === sid ? { ...s, ...patch } : s)) } : d
+      )
+    },
+    onSettled: done,
+  })
+  const remove = useMutation({
+    mutationFn: (sid) => api.delete(`/api/devices/${id}/schedules/${sid}`),
+    onSuccess: done,
+  })
+  const parse = useMutation({
+    mutationFn: (text) => api.post(`/api/devices/${id}/schedules/parse`, { text }).then((r) => r.data),
+  })
+  return { create, update, remove, parse }
+}
+
+// ── Insights (AI) ───────────────────────────────────────────────────
+/** Latest insight of a kind (or null). */
+export function useLatestInsight(id, kind, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: careKeys.insights(id, kind),
+    queryFn: () => get(`/api/devices/${id}/insights`, { kind, limit: 1 }).then((list) => list?.[0] ?? null),
+    enabled: Boolean(id) && enabled,
+  })
+}
+
+export function useGenerateDaily(id) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post(`/api/devices/${id}/insights/daily`).then((r) => r.data),
+    onSuccess: (insight) => qc.setQueryData(careKeys.insights(id, "daily_summary"), insight),
+  })
+}
+
+// ── Habit: streak ───────────────────────────────────────────────────
+export function useStreak(id, { days = 30, enabled = true } = {}) {
+  return useQuery({
+    queryKey: careKeys.streak(id),
+    queryFn: () => get(`/api/devices/${id}/streak`, { days }),
+    enabled: Boolean(id) && enabled,
+  })
+}
+
+// ── Groups ──────────────────────────────────────────────────────────
+export function useGroups() {
+  return useQuery({ queryKey: careKeys.groups, queryFn: () => get("/api/groups") })
+}
+
+/** Call after GroupJoinCreate succeeds (it posts on its own). */
+export function useRefreshGroups() {
+  const qc = useQueryClient()
+  return () => qc.invalidateQueries({ queryKey: careKeys.groups })
 }

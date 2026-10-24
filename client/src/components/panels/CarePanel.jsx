@@ -1,62 +1,180 @@
 /**
- * CarePanel — main panel for a device in Care mode. THIN SHELL.
- * The next phase composes DoseList, AdherenceCalendar, ScheduleEditor,
- * DailySummaryCard (components/care/*) in here.
+ * CarePanel — the Care-mode body of the device page.
  *
- * Props
- *  device     DeviceDetail (uses doses_today, schedules, today, timezone, role)
- *  canManage  boolean — caller is the owner
- *  className
+ * Today (hero + dose list) · 14-day adherence · AI daily summary · schedules
+ * (+ plain-English schedule input for the owner). Caregivers and viewers get
+ * read-only versions; caregivers can still ask for a fresh summary.
+ *
+ * `CarePanel` fetches (doses, insights) and wires the mutations.
+ * `CarePanelView` is presentational, so previews can pass sample data.
+ *
+ * CarePanel props:     device (DeviceDetail), canManage (owner?)
+ * CarePanelView props: device, canManage,
+ *   history   { doses, loading, error, onRetry }                     GET /doses (14 days)
+ *   summary   { insight, loading, error, onRetry, onGenerate, generating, generateError }
+ *   onManual(dose), manualPendingId                                   owner only
+ *   schedule  { onCreate(body), onUpdate(id, patch), onDelete(id) }   promises (owner)
+ *   onParse(text), onConfirm(proposed[])                              AI schedule input (owner)
  */
-import BigStat from "@/components/common/BigStat"
-import Surface from "@/components/common/Surface"
-import { formatClock, formatTimeOfDay } from "@/lib/format"
+import { CalendarClock } from "lucide-react"
+import AdherenceCalendar from "@/components/care/AdherenceCalendar"
+import AIScheduleInput from "@/components/care/AIScheduleInput"
+import CareTodayHero from "@/components/care/CareTodayHero"
+import DailySummaryCard from "@/components/care/DailySummaryCard"
+import DoseList from "@/components/care/DoseList"
+import ScheduleEditor from "@/components/care/ScheduleEditor"
+import { PanelCard } from "@/components/care/states"
+import { todayKey } from "@/components/care/scheduleUtils"
+import { errorMessage } from "@/lib/errors"
+import { useDoses, useGenerateDaily, useLatestInsight, useManualDose, useScheduleMutations } from "@/lib/queries"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
-const STATUS = {
-  upcoming: { label: "Upcoming", className: "bg-raised text-subtle" },
-  taken: { label: "Taken", className: "bg-success/12 text-success" },
-  late: { label: "Late", className: "bg-warning/12 text-warning" },
-  missed: { label: "Missed", className: "bg-danger/12 text-danger" },
+/** Today's rows from the device are fresher than the history fetch; prefer them. */
+function mergeToday(history = [], todayDoses = [], today) {
+  if (!todayDoses.length) return history
+  return [...history.filter((d) => d.date !== today), ...todayDoses]
 }
 
-export default function CarePanel({ device, className }) {
+export function CarePanelView({
+  device,
+  canManage = false,
+  history = {},
+  summary = {},
+  onManual,
+  manualPendingId = null,
+  schedule = {},
+  onParse,
+  onConfirm,
+  className,
+}) {
+  const tz = device?.timezone
   const doses = device?.doses_today ?? []
-  const total = device?.today?.total ?? doses.length
+  const today = doses[0]?.date ?? todayKey(tz)
   const taken = device?.today?.taken ?? doses.filter((d) => d.status === "taken" || d.status === "late").length
-  const next = device?.today?.next_dose
+  const total = device?.today?.total ?? doses.length
+  const schedules = device?.schedules ?? []
+  const canGenerate = device?.role !== "viewer"
+
   return (
-    <Surface className={cn("@container flex flex-col gap-6", className)}>
-      <BigStat
-        value={total ? `${taken}/${total}` : "—"}
-        caption={
-          total
-            ? `${taken === total ? "All doses taken today" : "doses taken today"}${next ? ` · next ${next.label} at ${formatTimeOfDay(next.time_of_day)}` : ""}`
-            : "No doses scheduled yet"
-        }
+    <div className={cn("@container flex flex-col gap-6", className)}>
+      <PanelCard aria-label="Today">
+        <CareTodayHero taken={taken} total={total} nextDose={device?.today?.next_dose ?? null} doses={doses} />
+        {doses.length ? (
+          <div className="border-t border-line pt-4">
+            <DoseList
+              bare
+              doses={doses}
+              isOwner={canManage}
+              onManual={canManage ? onManual : undefined}
+              pendingId={manualPendingId}
+              timeZone={tz}
+            />
+          </div>
+        ) : (
+          <p className="text-sm text-subtle">
+            {schedules.length
+              ? "No doses fall on today."
+              : canManage
+                ? "Add a schedule below and today's doses show up here."
+                : "No schedules yet."}
+          </p>
+        )}
+      </PanelCard>
+
+      <div className="grid grid-cols-1 gap-6 @[44rem]:grid-cols-2">
+        <AdherenceCalendar
+          doses={mergeToday(history.doses, doses, today)}
+          today={today}
+          timeZone={tz}
+          loading={history.loading}
+          error={history.error}
+          onRetry={history.onRetry}
+        />
+        <DailySummaryCard
+          insight={summary.insight ?? null}
+          onGenerate={summary.onGenerate}
+          generating={summary.generating}
+          generateError={summary.generateError}
+          canGenerate={canGenerate}
+          timeZone={tz}
+          loading={summary.loading}
+          error={summary.error}
+          onRetry={summary.onRetry}
+        />
+      </div>
+
+      <ScheduleEditor
+        schedules={schedules}
+        onCreate={schedule.onCreate}
+        onUpdate={schedule.onUpdate}
+        onDelete={schedule.onDelete}
+        canEdit={canManage}
       />
-      {doses.length ? (
-        <ul className="flex flex-col divide-y divide-line rounded-lg border border-line">
-          {doses.map((d) => {
-            const s = STATUS[d.status] ?? STATUS.upcoming
-            return (
-              <li key={d.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-base text-text">{d.label}</p>
-                  <p className="text-xs text-subtle">
-                    {formatTimeOfDay(d.time_of_day)}
-                    {d.opened_at ? ` · opened ${formatClock(d.opened_at, device?.timezone)}` : ""}
-                    {d.source === "sensor" ? " · verified by sensor" : d.source === "manual" ? " · self-reported" : ""}
-                  </p>
-                </div>
-                <span className={cn("inline-flex h-6 items-center rounded-pill px-2.5 text-xs font-medium transition-colors duration-200", s.className)}>
-                  {s.label}
-                </span>
-              </li>
-            )
-          })}
-        </ul>
-      ) : null}
-    </Surface>
+
+      {canManage ? (
+        <AIScheduleInput onParse={onParse} onConfirm={onConfirm} />
+      ) : (
+        <p className="flex items-center gap-2 px-1 text-sm text-subtle">
+          <CalendarClock className="size-4 shrink-0" aria-hidden />
+          Only the owner can change schedules.
+        </p>
+      )}
+    </div>
+  )
+}
+
+export default function CarePanel({ device, canManage = false, className }) {
+  const id = device?.id
+  const doses = useDoses(id)
+  const summary = useLatestInsight(id, "daily_summary")
+  const generate = useGenerateDaily(id)
+  const manual = useManualDose(id)
+  const { create, update, remove, parse } = useScheduleMutations(id)
+
+  async function markManual(dose) {
+    try {
+      await manual.mutateAsync(dose.id)
+      toast.success(`${dose.label} marked as taken`, { description: "Logged as self-reported." })
+    } catch (err) {
+      toast.error(errorMessage(err, "Couldn't mark it as taken."))
+    }
+  }
+
+  async function confirmProposed(items) {
+    // one at a time so a bad item stops the rest and the error shows inline
+    for (const item of items) await create.mutateAsync(item)
+  }
+
+  return (
+    <CarePanelView
+      device={device}
+      canManage={canManage}
+      className={className}
+      history={{
+        doses: doses.data ?? [],
+        loading: doses.isLoading,
+        error: doses.error ? errorMessage(doses.error, "Couldn't load the last two weeks.") : null,
+        onRetry: () => doses.refetch(),
+      }}
+      summary={{
+        insight: summary.data ?? null,
+        loading: summary.isLoading,
+        error: summary.error ? errorMessage(summary.error, "Couldn't load the summary.") : null,
+        onRetry: () => summary.refetch(),
+        onGenerate: () => generate.mutateAsync().catch(() => {}),
+        generating: generate.isPending,
+        generateError: generate.error ? errorMessage(generate.error, "Couldn't write a summary right now.") : null,
+      }}
+      onManual={markManual}
+      manualPendingId={manual.isPending ? manual.variables : null}
+      schedule={{
+        onCreate: (body) => create.mutateAsync(body),
+        onUpdate: (sid, patch) => update.mutateAsync({ sid, patch }),
+        onDelete: (sid) => remove.mutateAsync(sid),
+      }}
+      onParse={(text) => parse.mutateAsync(text)}
+      onConfirm={confirmProposed}
+    />
   )
 }
