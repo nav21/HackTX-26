@@ -1,138 +1,183 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/space-grotesk";
+@import "@fontsource-variable/inter";
+@import "./styles/tokens.css";
 
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Theme tokens (shadcn CSS variable system).
- * Placeholder dark theme, applied by default via class="dark" on <html>.
- * Restyle after ideation: edit the .dark block below (background, foreground,
- * primary accent, muted, radius, etc.).
+ * Tailwind theme = tokens.css, nothing else.
+ * Default palettes and the default type scale are cleared so only BWS tokens exist.
  */
-
 @theme inline {
-    --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
-    --color-sidebar-ring: var(--sidebar-ring);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-foreground: var(--sidebar-foreground);
-    --color-sidebar: var(--sidebar);
-    --color-chart-5: var(--chart-5);
-    --color-chart-4: var(--chart-4);
-    --color-chart-3: var(--chart-3);
-    --color-chart-2: var(--chart-2);
-    --color-chart-1: var(--chart-1);
-    --color-ring: var(--ring);
-    --color-input: var(--input);
-    --color-border: var(--border);
-    --color-destructive: var(--destructive);
-    --color-accent-foreground: var(--accent-foreground);
-    --color-accent: var(--accent);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-muted: var(--muted);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-secondary: var(--secondary);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-primary: var(--primary);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-popover: var(--popover);
-    --color-card-foreground: var(--card-foreground);
-    --color-card: var(--card);
-    --color-foreground: var(--foreground);
-    --color-background: var(--background);
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
+  /* 4 px spacing unit regardless of root font size → p-2 = 8, p-4 = 16, p-6 = 24 */
+  --spacing: 4px;
+
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  /* BWS names */
+  --color-bg: var(--bws-bg);
+  --color-surface: var(--bws-surface);
+  --color-raised: var(--bws-raised);
+  --color-hover: var(--bws-hover);
+  --color-line: var(--bws-border);
+  --color-line-strong: var(--bws-border-strong);
+  --color-text: var(--bws-text);
+  --color-subtle: var(--bws-muted);
+  --color-faint: var(--bws-faint);
+  --color-on-accent: var(--bws-on-accent);
+  --color-overlay: var(--bws-overlay);
+  --color-care: var(--bws-care);
+  --color-habit: var(--bws-habit);
+  --color-security: var(--bws-security);
+  --color-success: var(--bws-success);
+  --color-info: var(--bws-info);
+  --color-warning: var(--bws-warning);
+  --color-danger: var(--bws-danger);
+  --color-led-g: var(--bws-led-g);
+  --color-led-y: var(--bws-led-y);
+  --color-led-r: var(--bws-led-r);
+  --color-led-b: var(--bws-led-b);
+  --color-led-off: var(--bws-led-off);
+  /* the page accent (mode color) — bg-accent, text-accent, ring-accent … */
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--bws-on-accent);
+
+  /* shadcn semantic names → BWS tokens */
+  --color-background: var(--bws-bg);
+  --color-foreground: var(--bws-text);
+  --color-card: var(--bws-surface);
+  --color-card-foreground: var(--bws-text);
+  --color-popover: var(--bws-raised);
+  --color-popover-foreground: var(--bws-text);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--bws-on-accent);
+  --color-secondary: var(--bws-raised);
+  --color-secondary-foreground: var(--bws-text);
+  --color-muted: var(--bws-raised);
+  --color-muted-foreground: var(--bws-muted);
+  --color-destructive: var(--bws-danger);
+  --color-border: var(--bws-border);
+  --color-input: var(--bws-border);
+  --color-ring: var(--accent);
+
+  /* type */
+  --font-*: initial;
+  --font-sans: var(--bws-font-body);
+  --font-display: var(--bws-font-display);
+  --font-heading: var(--bws-font-display);
+
+  --text-*: initial;
+  --text-xs: var(--bws-text-xs);
+  --text-xs--line-height: 16px;
+  --text-sm: var(--bws-text-sm);
+  --text-sm--line-height: 20px;
+  --text-base: var(--bws-text-base);
+  --text-base--line-height: 24px;
+  --text-md: var(--bws-text-md);
+  --text-md--line-height: 24px;
+  --text-lg: var(--bws-text-lg);
+  --text-lg--line-height: 26px;
+  --text-xl: var(--bws-text-xl);
+  --text-xl--line-height: 28px;
+  --text-2xl: var(--bws-text-2xl);
+  --text-2xl--line-height: 34px;
+  --text-3xl: var(--bws-text-3xl);
+  --text-3xl--line-height: 40px;
+  --text-display: var(--bws-text-display);
+  --text-display--line-height: 1;
+  --text-hero: var(--bws-text-hero);
+  --text-hero--line-height: 1;
+
+  /* shape */
+  --radius-sm: 6px;
+  --radius-md: var(--bws-radius-inner);
+  --radius-lg: var(--bws-radius-control);
+  --radius-xl: var(--bws-radius-card);
+  --radius-2xl: 20px;
+  --radius-4xl: var(--bws-radius-pill);
+  --radius-card: var(--bws-radius-card);
+  --radius-control: var(--bws-radius-control);
+  --radius-inner: var(--bws-radius-inner);
+  --radius-pill: var(--bws-radius-pill);
+
+  --shadow-raised: var(--bws-shadow-raised);
+  --shadow-pop: var(--bws-shadow-pop);
+  --shadow-glow: var(--bws-shadow-glow);
+
+  --container-page: var(--bws-page-max);
+  --container-rail: var(--bws-rail-width);
+
+  --ease-out: var(--bws-ease-out);
+  --ease-in-out: var(--bws-ease-in-out);
+
+  --animate-led-blink: led-blink 1s var(--bws-ease-in-out) infinite;
+  --animate-ping-once: ping-once 900ms var(--bws-ease-out) 1;
 }
 
+@keyframes led-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
+}
+
+@keyframes ping-once {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+/* legacy shadcn variables some primitives still read directly */
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-    --radius: 0.625rem;
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.65 0.2 285);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.65 0.2 285);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+  --radius: var(--bws-radius-control);
+  --background: var(--bws-bg);
+  --foreground: var(--bws-text);
+  --popover: var(--bws-raised);
+  --popover-foreground: var(--bws-text);
+  --border: var(--bws-border);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
-  body {
-    @apply bg-background text-foreground;
-    }
+  }
   html {
-    @apply font-sans;
-    }
+    @apply bg-bg font-sans text-text antialiased;
+    /* root stays 16px so rem-based primitives keep their size; body text is 15px */
+    font-feature-settings: "cv11", "ss01";
+  }
+  body {
+    @apply min-h-svh bg-bg text-base text-text;
+  }
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight text-balance;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 35%, transparent);
+  }
+  /* Lucide icons: 1.5 px stroke everywhere */
+  svg.lucide {
+    stroke-width: 1.5px;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  [data-slot="button"]:focus-visible,
+  [data-slot="input"]:focus-visible {
+    outline: none;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility page {
+  width: 100%;
+  max-width: var(--bws-page-max);
+  margin-inline: auto;
+  padding-inline: var(--bws-gutter);
 }

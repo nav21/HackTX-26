@@ -8,9 +8,15 @@ export default function ProtectedRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="mx-auto flex max-w-3xl flex-col gap-4 p-8">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-32 w-full" />
+      <div className="min-h-svh bg-bg" aria-busy="true">
+        <div className="page flex h-16 items-center justify-between border-b border-line">
+          <Skeleton className="h-7 w-20" />
+          <Skeleton className="size-8 rounded-full" />
+        </div>
+        <div className="page flex flex-col gap-4 pt-8">
+          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-44 w-full rounded-card" />
+        </div>
       </div>
     )
   }
