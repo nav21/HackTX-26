@@ -23,6 +23,8 @@ export async function withOwner(device) {
     owner_id: owner?.user_id ?? null,
     owner_name: careName ?? accountName,
     owner_possessive: careName ? device.person_pronoun || 'their' : 'their',
+    // A named person ("Grandma") means the owner is a caregiver-like setup person, not the patient.
+    person_is_owner: !careName,
   });
 }
 

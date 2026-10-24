@@ -102,6 +102,24 @@ function who(device) {
   return { name: name ?? 'They', poss: device?.owner_possessive || 'their', obj: name ?? 'them' };
 }
 
+/**
+ * Owner-facing copy. The owner usually takes the meds ("your 8 AM meds"), but when the
+ * device names someone else (person_is_owner === false, e.g. the owner set up Grandma's
+ * pillbox), it reads "Grandma's 8 AM meds" instead.
+ */
+function forOwner(device) {
+  const p = who(device);
+  if (device?.person_is_owner !== false) {
+    return { meds: (at) => `your ${at} meds`, missed: (at) => `You missed your ${at} meds`, box: 'your box', took: 'you took them' };
+  }
+  return {
+    meds: (at) => `${p.name}'s ${at} meds`,
+    missed: (at) => `${p.name} missed ${p.poss} ${at} meds`,
+    box: 'the box',
+    took: `${p.name} took them`,
+  };
+}
+
 /** Return a copy of `doses` with the slot's row patched (or created). */
 function patchDoses(doses, slot, set) {
   const k = key(slot.schedule_id, slot.date);
@@ -229,7 +247,8 @@ export function careTick({ device = {}, schedules = [], doses = [], events = [],
       set.status = 'missed';
       transition = true;
       after.push(event('dose_missed', dosePayload(slot), t));
-      after.push(notify('owner', 'dose_missed', `You missed your ${at} meds`, `No opening by ${fmtTime(graceEnd, tz)} · mark it taken in the app if you took them`));
+      const o = forOwner(device);
+      after.push(notify('owner', 'dose_missed', o.missed(at), `No opening by ${fmtTime(graceEnd, tz)} · mark it taken in the app if ${o.took}`));
       after.push(notify('caregivers', 'dose_missed', `${p.name} missed ${p.poss} ${at} meds`, `No opening by ${fmtTime(graceEnd, tz)}`));
     } else if (status === 'upcoming' && t >= due) {
       // 1. At dose time → reminder; re-notify on every 15-min slot after it until opened or missed.
@@ -250,10 +269,11 @@ export function careTick({ device = {}, schedules = [], doses = [], events = [],
         set.last_reminder_at = new Date(t);
         transition = true;
         after.push(event('reminder_sent', dosePayload(slot, { minutes_late: sinceDue, nth: reminders.length + 1 }), t));
+        const o = forOwner(device);
         after.push(
           first
-            ? notify('owner', 'reminder_sent', `Time for your ${at} meds`, `${slot.label ?? 'Meds'} · open your box by ${fmtTime(graceEnd, tz)}`)
-            : notify('owner', 'reminder_sent', `Reminder: your ${at} meds`, `${sinceDue} min since dose time · open your box by ${fmtTime(graceEnd, tz)}`),
+            ? notify('owner', 'reminder_sent', `Time for ${o.meds(at)}`, `${slot.label ?? 'Meds'} · open ${o.box} by ${fmtTime(graceEnd, tz)}`)
+            : notify('owner', 'reminder_sent', `Reminder: ${o.meds(at)}`, `${sinceDue} min since dose time · open ${o.box} by ${fmtTime(graceEnd, tz)}`),
         );
       }
     }
