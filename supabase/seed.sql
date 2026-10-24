@@ -1,0 +1,6 @@
+-- demo seed data goes here
+--
+-- Paste into Supabase Dashboard -> SQL Editor after schema.sql.
+-- Note: profiles rows are created automatically on signup, so seed demo users
+-- by signing up through the app (or Auth -> Users -> Add user) rather than
+-- inserting into profiles directly.
