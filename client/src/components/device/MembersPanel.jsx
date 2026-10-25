@@ -168,7 +168,7 @@ export default function MembersPanel({
             {inviting ? "Adding…" : "Add person"}
           </Button>
           {inviteError ? <InlineError message={inviteError} /> : null}
-          <p className="text-xs text-subtle">They need a TSwift account with this email.</p>
+          <p className="text-xs text-subtle">They need a TSWIFT account with this email.</p>
         </form>
       ) : null}
     </section>

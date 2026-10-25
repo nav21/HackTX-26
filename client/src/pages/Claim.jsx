@@ -263,7 +263,7 @@ export default function Claim({ embedded = false }) {
                 <>
                   <div>
                     <h1 className="text-2xl font-semibold sm:text-3xl">Enter the code on your box</h1>
-                    <p className="mt-2 text-base text-subtle">It's the 4-digit number on the TSwift label.</p>
+                    <p className="mt-2 text-base text-subtle">It's the 4-digit number on the TSWIFT label.</p>
                   </div>
                   <CodeInput value={code} onChange={setCode} invalid={Boolean(codeError)} autoFocus={!embedded} />
                   {codeError ? <InlineError message={codeError} /> : null}

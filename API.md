@@ -185,7 +185,7 @@ Unclaims: removes members, schedules, doses, streaks; keeps events (chain stays 
 
 ### POST /api/devices/:id/members  (owner)
 body `{ email: string, role: "caregiver" | "viewer" }` → `201 Member`
-Errors: `404 not_found` "No TSwift account with that email" · `409 conflict` already a member.
+Errors: `404 not_found` "No TSWIFT account with that email" · `409 conflict` already a member.
 
 ### DELETE /api/devices/:id/members/:userId  (owner)
 → `204`. Can't remove the owner (`400`).

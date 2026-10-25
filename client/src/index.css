@@ -9,7 +9,7 @@
 
 /*
  * Tailwind theme = tokens.css, nothing else.
- * Default palettes and the default type scale are cleared so only TSwift tokens exist.
+ * Default palettes and the default type scale are cleared so only TSWIFT tokens exist.
  */
 @theme inline {
   /* 4 px spacing unit regardless of root font size → p-2 = 8, p-4 = 16, p-6 = 24 */
@@ -19,7 +19,7 @@
   --color-transparent: transparent;
   --color-current: currentColor;
 
-  /* TSwift names */
+  /* TSWIFT names */
   --color-bg: var(--bws-bg);
   --color-surface: var(--bws-surface);
   --color-raised: var(--bws-raised);
@@ -47,7 +47,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--bws-on-accent);
 
-  /* shadcn semantic names → TSwift tokens */
+  /* shadcn semantic names → TSWIFT tokens */
   --color-background: var(--bws-bg);
   --color-foreground: var(--bws-text);
   --color-card: var(--bws-surface);
