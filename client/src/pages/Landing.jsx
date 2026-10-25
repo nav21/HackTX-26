@@ -25,7 +25,7 @@ export default function Landing() {
                 Make any container smart.
               </h1>
               <p className="mt-4 max-w-[44ch] text-md text-subtle sm:mt-6 sm:text-lg">
-                BWS is a small sensor you drop into a pillbox, a supplement tub or a backpack. It notices when the lid
+                TSwift is a small sensor you drop into a pillbox, a supplement tub or a backpack. It notices when the lid
                 opens, and the app tells the people who should know.
               </p>
               <div className="mt-6 flex flex-wrap sm:mt-8 items-center gap-3">

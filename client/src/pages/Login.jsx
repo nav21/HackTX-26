@@ -166,7 +166,7 @@ export default function Login() {
         </div>
 
         <div className="mx-auto w-full max-w-sm rounded-card border border-line bg-surface p-6 shadow-raised">
-          <h2 className="text-xl font-semibold">Welcome to BWS</h2>
+          <h2 className="text-xl font-semibold">Welcome to TSwift</h2>
           <p className="mt-1 text-sm text-subtle">Sign in, or create an account to pair your first box.</p>
           {!isSupabaseConfigured ? (
             <InlineError className="mt-4" message="Sign-in isn't set up on this build yet (Supabase keys are missing)." />

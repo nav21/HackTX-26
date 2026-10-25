@@ -147,8 +147,6 @@ function HabitPreview({ device, onPatch, canManage }) {
       device={device}
       canManage={canManage}
       streak={{ current: device.streak?.current, best: device.streak?.best, history: panelStreakHistory }}
-      onToneChange={(tone) => save("tone", { tone })}
-      toneSaving={saving === "tone"}
       onReminderChange={(reminder_time) => save("reminder", { reminder_time })}
       reminderSaving={saving === "reminder"}
       groups={{ list: groups }}

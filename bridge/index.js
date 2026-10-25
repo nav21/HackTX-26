@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// BWS bridge: Arduino (USB serial) <-> BWS server. A dumb pipe.
+// TSwift bridge: Arduino (USB serial) <-> TSwift server. A dumb pipe.
 //   node index.js                      real serial
 //   node index.js --mock               keyboard-driven fake box (o = open, c = close, h = heartbeat, q = quit)
 //   node index.js --script "o,c,o"     mock, non-interactive: one step per second, exit when the queue drains
@@ -17,7 +17,7 @@ import { MockDevice } from './mock.js';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const COMMAND_POLL_MS = 1000;
 
-const HELP = `BWS bridge
+const HELP = `TSwift bridge
 
 Usage:
   npm start                        real Arduino over USB serial
@@ -247,7 +247,7 @@ async function startRealSerial() {
 // ---------------------------------------------------------------- go
 
 log.info(
-  `${paint.bold('BWS bridge')} ${args.mock ? paint.magenta('[MOCK]') : '[serial]'} ` +
+  `${paint.bold('TSwift bridge')} ${args.mock ? paint.magenta('[MOCK]') : '[serial]'} ` +
     paint.dim(`-> ${config.apiUrl}  device ${config.deviceId.slice(0, 8)}...`),
 );
 if (!args.mock) {

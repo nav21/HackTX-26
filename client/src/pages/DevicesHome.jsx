@@ -115,7 +115,7 @@ export default function DevicesHome() {
           <EmptyState
             boxSize="lg"
             peek
-            title="Add your first BWS"
+            title="Add your first TSwift"
             body="Put the sensor in any container: a pillbox, a drawer, a backpack. You decide what an opening means."
             action={
               <Button asChild size="lg">

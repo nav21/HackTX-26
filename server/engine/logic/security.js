@@ -75,7 +75,7 @@ export function securityOnOpen({ device = {}, openedAt, timezone, recentAlerts =
       ['owner', 'caregivers'],
       'alert',
       `${nameOf(device)} opened at ${at} while armed`,
-      silent ? 'Silent alarm · box LED unchanged' : 'Alarm on · box flashing red',
+      silent ? 'Silent alarm · no siren' : 'Alarm on · siren sounding',
       true,
     ),
     ai(

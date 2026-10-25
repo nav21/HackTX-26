@@ -21,7 +21,7 @@ export default function NotificationPrompt({ open, onOpenChange }) {
         </span>
         <DialogTitle className="mt-4 text-xl font-semibold">Get alerts on this device?</DialogTitle>
         <DialogDescription className="mt-2 text-base text-subtle">
-          BWS can pop up a notification when a dose is missed or the box opens while armed, even when this tab is in the
+          TSwift can pop up a notification when a dose is missed or the box opens while armed, even when this tab is in the
           background. You can change this in your browser any time.
         </DialogDescription>
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
