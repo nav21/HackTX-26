@@ -34,7 +34,7 @@
  *   PC -> device:
  *     LED,<G|Y|R|B|OFF>[,BLINK]
  *     CAL                      recalibrate (keep the lid CLOSED for ~2 s)
- *     RAW                      toggle "#RAW <reading>" lines every 250 ms (for tuning)
+ *     RAW[,ON|,OFF]            "#RAW <reading>" lines every 250 ms (for tuning); RAW alone toggles
  *   `seq` starts at 1 each boot and is shared by EVT and HB lines. BOOT has no seq.
  *
  * TIME: the board has no clock that knows the date, so we only track uptime in ms
@@ -62,17 +62,33 @@
 #define SENSOR_LDR_PA25 1
 #define SENSOR_ONBOARD_D1 2
 #ifndef SENSOR_SOURCE
-#define SENSOR_SOURCE SENSOR_LDR_PA25
+#define SENSOR_SOURCE SENSOR_ONBOARD_D1
 #endif
 
-/* ---- Tuning (readings are 12-bit, 0..4095) ---- */
+/*
+ * Reading scale. The onboard photodiode gives a tiny signal in room light, so for it we
+ * compare against the internal 1.4 V reference (instead of 3.3 V) and let the ADC hardware
+ * add up 16 conversions per reading: 0..65520 instead of 0..4095.
+ */
+#if SENSOR_SOURCE == SENSOR_ONBOARD_D1
+#define LIGHT_MAX 65520u
+#define OPEN_MARGIN 60          /* open when light >= baseline + OPEN_MARGIN */
+#define CLOSE_MARGIN 30         /* close when light <= baseline + CLOSE_MARGIN (gap = hysteresis) */
+#define HB_SHIFT 6              /* heartbeat value = light >> 6 (bridge expects 0..1023) */
+#else
+#define LIGHT_MAX 4095u
+#define OPEN_MARGIN 240
+#define CLOSE_MARGIN 120
+#define HB_SHIFT 2
+#endif
+
+/* ---- Tuning (see LIGHT_MAX / OPEN_MARGIN / CLOSE_MARGIN above for the scale) ---- */
 #define SAMPLE_INTERVAL_MS 50   /* read the sensor every 50 ms */
 #define AVG_WINDOW 8            /* moving average of 8 samples = 400 ms */
 #define CAL_DURATION_MS 2000    /* boot / CAL baseline time (lid must be closed) */
-#define OPEN_MARGIN 240         /* open when light >= baseline + OPEN_MARGIN */
-#define CLOSE_MARGIN 120        /* close when light <= baseline + CLOSE_MARGIN (gap = hysteresis) */
-#define MAX_OPEN_THRESHOLD 4000 /* keep the open threshold reachable on a bright baseline */
+#define MAX_OPEN_THRESHOLD (LIGHT_MAX - LIGHT_MAX / 40) /* keep it reachable on a bright baseline */
 #define DEBOUNCE_MS 300         /* a crossing must hold this long to count */
+#define AUTO_DARK_MS 1000       /* darker than the baseline this long -> relearn "dark" */
 #define HEARTBEAT_MS 10000u
 #define RAW_INTERVAL_MS 250
 #define BLINK_HALF_PERIOD_MS 500
@@ -153,6 +169,18 @@ static const DL_ADC12_ClockConfig adcClock = {
     .freqRange = DL_ADC12_CLOCK_FREQ_RANGE_24_TO_32,
 };
 
+static const DL_VREF_ClockConfig vrefClock = {
+    .clockSel = DL_VREF_CLOCK_BUSCLK,
+    .divideRatio = DL_VREF_CLOCK_DIVIDE_1,
+};
+static const DL_VREF_Config vrefConfig = {
+    .vrefEnable = DL_VREF_ENABLE_ENABLE,
+    .bufConfig = DL_VREF_BUFCONFIG_OUTPUT_1_4V,
+    .shModeEnable = DL_VREF_SHMODE_DISABLE,
+    .holdCycleCount = DL_VREF_HOLD_MIN,
+    .shCycleCount = DL_VREF_SH_MIN,
+};
+
 static void sensorInit(void)
 {
     DL_OPA_disableRailToRailInput(OPA0);
@@ -167,14 +195,23 @@ static void sensorInit(void)
 #if SENSOR_SOURCE == SENSOR_LDR_PA25
     /* PA25 (IOMUX_PINCM55) stays analog; only its internal pull-up is switched on. */
     DL_GPIO_setAnalogInternalResistor(IOMUX_PINCM55, DL_GPIO_RESISTOR_PULL_UP);
-#define SENSOR_ADC_CHANNEL DL_ADC12_INPUT_CHAN_2 /* PA25 = A0_2 */
-#else
-#define SENSOR_ADC_CHANNEL DL_ADC12_INPUT_CHAN_7 /* PA22 = A0_7 = OPA0 output */
-#endif
-    DL_ADC12_configConversionMem(ADC0, DL_ADC12_MEM_IDX_0, SENSOR_ADC_CHANNEL,
+    DL_ADC12_configConversionMem(ADC0, DL_ADC12_MEM_IDX_0, DL_ADC12_INPUT_CHAN_2, /* PA25 = A0_2 */
         DL_ADC12_REFERENCE_VOLTAGE_VDDA, DL_ADC12_SAMPLE_TIMER_SOURCE_SCOMP0,
         DL_ADC12_AVERAGING_MODE_DISABLED, DL_ADC12_BURN_OUT_SOURCE_DISABLED,
         DL_ADC12_TRIGGER_MODE_AUTO_NEXT, DL_ADC12_WINDOWS_COMP_MODE_DISABLED);
+#else
+    /* Internal 1.4 V reference (TI example adc12_single_conversion_vref_internal). */
+    DL_VREF_setClockConfig(VREF, (DL_VREF_ClockConfig *) &vrefClock);
+    DL_VREF_configReference(VREF, (DL_VREF_Config *) &vrefConfig);
+    uint32_t t0 = millis();
+    while (DL_VREF_getStatus(VREF) == DL_VREF_CTL1_READY_NOTRDY && millis() - t0 < 50) {}
+    /* 16 conversions summed per reading (divide by 1) -> 0..65520 */
+    DL_ADC12_configHwAverage(ADC0, DL_ADC12_HW_AVG_NUM_ACC_16, DL_ADC12_HW_AVG_DEN_DIV_BY_1);
+    DL_ADC12_configConversionMem(ADC0, DL_ADC12_MEM_IDX_0, DL_ADC12_INPUT_CHAN_7, /* PA22 = OPA0 out */
+        DL_ADC12_REFERENCE_VOLTAGE_INTREF, DL_ADC12_SAMPLE_TIMER_SOURCE_SCOMP0,
+        DL_ADC12_AVERAGING_MODE_ENABLED, DL_ADC12_BURN_OUT_SOURCE_DISABLED,
+        DL_ADC12_TRIGGER_MODE_AUTO_NEXT, DL_ADC12_WINDOWS_COMP_MODE_DISABLED);
+#endif
     DL_ADC12_setSampleTime0(ADC0, 100); /* 100 / 8 MHz = 12.5 us */
     DL_ADC12_setPowerDownMode(ADC0, DL_ADC12_POWER_DOWN_MODE_MANUAL);
     DL_ADC12_clearInterruptStatus(ADC0, DL_ADC12_INTERRUPT_MEM0_RESULT_LOADED);
@@ -288,6 +325,17 @@ static void pushSample(uint16_t v)
 
 static uint16_t smoothed(void) { return (uint16_t) (sampleSum / AVG_WINDOW); }
 
+/* Dark level -> open/close thresholds (open above close = hysteresis). */
+static void setBaseline(uint16_t dark)
+{
+    baseline = dark;
+    uint32_t open = (uint32_t) baseline + OPEN_MARGIN;
+    if (open > MAX_OPEN_THRESHOLD) open = MAX_OPEN_THRESHOLD;
+    openThreshold = (uint16_t) open;
+    closeThreshold = (uint16_t) (baseline + CLOSE_MARGIN);
+    if (closeThreshold + 20 > openThreshold) closeThreshold = openThreshold - 20;
+}
+
 static void calibrate(void)
 {
     LedColor prevColor = ledColor; /* restore the server's LED state afterwards */
@@ -301,12 +349,7 @@ static void calibrate(void)
         n++;
         delayMs(SAMPLE_INTERVAL_MS);
     }
-    baseline = n ? (uint16_t) (sum / n) : readLight();
-    uint32_t open = (uint32_t) baseline + OPEN_MARGIN;
-    if (open > MAX_OPEN_THRESHOLD) open = MAX_OPEN_THRESHOLD;
-    openThreshold = (uint16_t) open;
-    closeThreshold = (uint16_t) (baseline + CLOSE_MARGIN);
-    if (closeThreshold + 20 > openThreshold) closeThreshold = openThreshold - 20;
+    setBaseline(n ? (uint16_t) (sum / n) : readLight());
 
     fillWindow(baseline);
     lidOpen = false;
@@ -325,14 +368,31 @@ static void emitEvent(bool opened)
 
 static void emitHeartbeat(void)
 {
-    /* The bridge expects 0..1023 (Arduino scale), so send the 12-bit value / 4. */
-    printf_line("HB,%lu,%lu\n", nextSeq(), smoothed() >> 2, 0);
+    /* The bridge expects 0..1023 (Arduino scale), so scale the reading down. */
+    uint32_t hb = smoothed() >> HB_SHIFT;
+    printf_line("HB,%lu,%lu\n", nextSeq(), hb > 1023 ? 1023 : hb, 0);
 }
 
 static void updateLid(uint32_t now)
 {
     uint16_t light = smoothed();
     bool crossing = lidOpen ? (light <= closeThreshold) : (light >= openThreshold);
+    /*
+     * Auto-relearn "dark": if it calibrated with the lid open (or the room got darker), a closed
+     * lid reads clearly below the baseline. After AUTO_DARK_MS of that, adopt it as the new dark.
+     */
+    static uint32_t darkerSince = 0;
+    if (!lidOpen && light + CLOSE_MARGIN < baseline) {
+        if (!darkerSince) darkerSince = now ? now : 1;
+        else if (now - darkerSince >= AUTO_DARK_MS) {
+            darkerSince = 0;
+            setBaseline(light);
+            printf_line("#CAL auto baseline=%lu open>=%lu close<=%lu\n", baseline, openThreshold, closeThreshold);
+        }
+    } else {
+        darkerSince = 0;
+    }
+
     if (!crossing) { pending = false; return; }
     if (!pending) { pending = true; pendingSince = now; return; }
     if (now - pendingSince >= DEBOUNCE_MS) {
@@ -352,8 +412,8 @@ static uint8_t cmdLen = 0;
 static void handleCommand(char *cmd)
 {
     if (strcmp(cmd, "CAL") == 0) { calibrate(); return; }
-    if (strcmp(cmd, "RAW") == 0) {
-        rawOn = !rawOn;
+    if (strcmp(cmd, "RAW") == 0 || strcmp(cmd, "RAW,ON") == 0 || strcmp(cmd, "RAW,OFF") == 0) {
+        rawOn = cmd[3] == '\0' ? !rawOn : cmd[5] == 'N'; /* RAW toggles; RAW,ON / RAW,OFF set */
         print(rawOn ? "#RAW on\n" : "#RAW off\n");
         return;
     }
@@ -422,11 +482,13 @@ static void boardInit(void)
     DL_UART_Main_reset(UART0);
     DL_OPA_reset(OPA0);
     DL_ADC12_reset(ADC0);
+    DL_VREF_reset(VREF);
     DL_GPIO_enablePower(GPIOA);
     DL_GPIO_enablePower(GPIOB);
     DL_UART_Main_enablePower(UART0);
     DL_OPA_enablePower(OPA0);
     DL_ADC12_enablePower(ADC0);
+    DL_VREF_enablePower(VREF);
     delay_cycles(POWER_STARTUP_DELAY);
 
     /* LED1 (PA0) and the RGB LED (PB22/26/27) as outputs, all off. */
@@ -451,10 +513,10 @@ static void boardInit(void)
     DL_UART_Main_configBaudRate(UART0, CPU_HZ, 115200);
     DL_UART_Main_enable(UART0);
 
-    sensorInit();
-
-    /* 1 ms tick for uptime. */
+    /* 1 ms tick for uptime (sensorInit uses it for a timeout). */
     SysTick_Config(CPU_HZ / 1000);
+
+    sensorInit();
 }
 
 int main(void)

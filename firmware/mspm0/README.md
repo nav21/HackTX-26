@@ -29,15 +29,25 @@ OPA0, whose output goes to ADC channel 7 (pin PA22). Jumpers **J16, J17, J18** m
 by default, so don't remove them. Don't connect anything to header pins **J1.5, J1.8 or J3.24** (same pins).
 Source: TI user's guide SLAU873, section 2.3.7.3 and the "Light Sensor Circuit" schematic.
 
-More light means a higher reading. When the board boots it spends 2 seconds measuring "dark" (LED solid
-blue), so **keep the lid closed (or cover D1 with your finger) while it starts.**
+The signal is small in room light, so the firmware compares against the internal 1.4 V reference and lets
+the ADC add up 16 conversions per reading (0..65520). Measured on our board: **covered/dark ~75, desk lamp
+room light ~285**, noise about +/-10. Opens at dark + 60 and closes at dark + 30.
+
+**How "dark" is learned:** at boot it measures for 2 s (RGB LED solid blue), which assumes the lid is
+closed. If it booted with the lid open, it notices: once a closed lid reads clearly darker than the
+baseline for 1 s, it adopts that as the new dark and prints `#CAL auto ...`. You can also recalibrate
+any time with the lid closed: press **S2** or send `CAL`.
 
 - **LED1 (red, next to the reset button):** on while the lid is open.
 - **RGB LED:** the status color the server sends (`LED,G|Y|R|B|OFF[,BLINK]`).
-- **Button S2:** recalibrate (keep the lid closed). The serial command `CAL` does the same.
-- **Serial command `RAW`:** toggles `#RAW <reading>` lines 4 times a second, for tuning the thresholds.
+- **`RAW,ON` / `RAW,OFF`:** prints `#RAW <reading>` 4 times a second, for tuning. `RAW` alone toggles.
 
-The thresholds are at the top of `bws/main.c`: `OPEN_MARGIN` and `CLOSE_MARGIN`, in ADC counts above the dark baseline.
+The thresholds are at the top of `bws/main.c` (`OPEN_MARGIN`, `CLOSE_MARGIN`).
+
+**External photoresistor option:** build with `SENSOR_SOURCE=SENSOR_LDR_PA25` to use a photoresistor
+between header **J1.2 (PA25)** and a **GND** pin instead. The chip's internal 40 kohm pull-up
+(datasheet SLASEX6C, RPU) is the other half of the divider, so no extra resistor is needed. Never
+connect it to 3V3 (J1.1, right next to J1.2).
 
 ## Build and flash
 
