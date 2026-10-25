@@ -12,7 +12,7 @@ import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { playAlarm } from "@/lib/alarmSound"
+import { playAlarm, stopAlarm } from "@/lib/alarmSound"
 import { useAuth } from "@/context/AuthContext"
 import { supabase } from "@/lib/supabase"
 import { careKeys, keys, patchDeviceCaches, prependEvent } from "@/lib/queries"
@@ -114,6 +114,8 @@ export function RealtimeProvider({ children }) {
       if (row.type === "opened" || row.type === "closed") {
         patchDeviceCaches(qc, row.device_id, { lid_state: row.type === "opened" ? "open" : "closed" })
       }
+      // Disarming the device silences its siren.
+      if (row.type === "disarmed") stopAlarm(row.device_id)
       if (STATEFUL_EVENTS.has(row.type)) {
         invalidateSoon(keys.devices)
         invalidateSoon(keys.device(row.device_id))
@@ -140,10 +142,16 @@ export function RealtimeProvider({ children }) {
           description: row.body ?? undefined,
           action: go ? { label: "Open", onClick: go } : undefined,
         }
+        // Armed device opened: sound the siren until it's disarmed or this toast is closed,
+        // unless the device is set to silent alarm.
+        const siren = row.kind === "alert" && !row.body?.startsWith("Silent alarm")
+        if (siren) {
+          opts.onDismiss = () => stopAlarm(row.device_id)
+          if (go) opts.action = { label: "Open", onClick: () => (stopAlarm(row.device_id), go()) }
+          playAlarm({ deviceId: row.device_id })
+        }
         if (row.urgent) toast.error(row.title, { ...opts, duration: Infinity, closeButton: true })
         else toast(row.title, { ...opts, duration: 6000 })
-        // Armed device opened: sound the siren, unless the device is set to silent alarm.
-        if (row.kind === "alert" && !row.body?.startsWith("Silent alarm")) playAlarm()
         showBrowserNotification(row, go)
         if (row.kind === "daily_summary" && row.device_id) invalidateSoon(careKeys.insights(row.device_id, "daily_summary"))
       } else if (eventType === "UPDATE") {
