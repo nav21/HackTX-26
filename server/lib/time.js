@@ -20,6 +20,6 @@ export const hhmm = (time) => (time ? String(time).slice(0, 5) : time);
 
 // The instant a 'HH:MM' time happens on a local date ('YYYY-MM-DD') in tz.
 export function localDateTime(date, time, tz) {
-  const [hour, minute] = String(time).split(':').map(Number);
-  return DateTime.fromISO(date, { zone: zone(tz) }).set({ hour, minute, second: 0, millisecond: 0 });
+  const [hour, minute, second = 0] = String(time).split(':').map(Number);
+  return DateTime.fromISO(date, { zone: zone(tz) }).set({ hour, minute, second, millisecond: 0 });
 }

@@ -9,7 +9,7 @@
  * `CarePanelView` is presentational, so previews can pass sample data.
  *
  * Today card header: who takes the meds (person_name; owner edits it in a
- * dialog) and, when GET /api/health says demo, the owner's "Demo · dose in 1 min".
+ * dialog) and, when GET /api/health says demo, the owner's "Demo · dose now".
  *
  * CarePanel props:     device (DeviceDetail), canManage (owner?)
  * CarePanelView props: device, canManage,
@@ -98,10 +98,10 @@ function TodayHeader({ device, canManage, onEditPerson, demo }) {
           onClick={demo.onClick}
           disabled={demo.pending}
           className="border-accent/50 bg-accent/10 text-accent hover:border-accent hover:bg-accent/20"
-          title="Moves the next dose to about a minute from now"
+          title="Makes the next dose due now: reminder now, missed in ~1 min, family alert in ~2 min"
         >
           {demo.pending ? <LoaderCircle className="animate-spin" aria-hidden /> : <Timer aria-hidden />}
-          Demo · dose in 1 min
+          Demo · dose now
         </Button>
       ) : null}
     </div>
@@ -216,7 +216,7 @@ export default function CarePanel({ device, canManage = false, className }) {
       const res = await demo.mutateAsync()
       const hhmm = res?.dose?.time_of_day ?? res?.schedule?.time_of_day
       toast.success(hhmm ? `Next dose moved to ${formatTimeOfDay(hhmm)}.` : "Next dose moved up.", {
-        description: "Reminder in about a minute.",
+        description: "Reminder sent. Missed in about a minute if the box stays shut.",
       })
     } catch (err) {
       toast.error(errorMessage(err, "Couldn't move the dose."))

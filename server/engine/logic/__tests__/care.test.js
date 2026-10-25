@@ -511,3 +511,24 @@ describe('careSummaryDue / careSummaryIntents', () => {
     assert.equal(i.fallback, 'Grandma took 1 of 2 doses today (missed: 8 PM).');
   });
 });
+
+describe('demo "dose now" (time_of_day with seconds)', () => {
+  const demo = { ...s20, id: 'sd', time_of_day: '19:42:37', window_before_min: 0, grace_min: 1, escalate_after_min: 1 };
+  const tickAt = (state, local) => {
+    const out = careTick({ device: { ...device, led: state.led }, schedules: [demo], doses: state.doses, events: state.events, now: at(`${MON}T${local}`), timezone: CHI });
+    apply(state, out);
+    return out;
+  };
+
+  test('due to the second: reminder at T, missed at T+60s, escalated at T+120s', () => {
+    const [w] = doseWindows({ schedules: [demo], date: MON, timezone: CHI });
+    assert.equal(iso(w.due_at), '2026-10-27T00:42:37.000Z');
+    assert.equal(w.time_of_day, '19:42');
+    const state = {};
+    assert.deepEqual(types(tickAt(state, '19:42:36')), []);
+    assert.deepEqual(types(tickAt(state, '19:42:37')), ['reminder_sent']);
+    assert.deepEqual(types(tickAt(state, '19:43:36')), []);
+    assert.deepEqual(types(tickAt(state, '19:43:37')), ['dose_missed']);
+    assert.deepEqual(types(tickAt(state, '19:44:37')), ['escalated']);
+  });
+});

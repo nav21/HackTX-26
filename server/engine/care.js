@@ -5,7 +5,6 @@ import { conflict, must } from '../lib/errors.js';
 import { careLed, careManual, careOnOpen, careStats7d, careSummaryDue, careSummaryIntents, careTick } from './logic/index.js';
 import { careRows, eventsSince, latestEvent, withOwner } from './context.js';
 import { execute } from './execute.js';
-import { setLed } from './led.js';
 import { localNow, localWeekday } from '../lib/time.js';
 
 const todayOnly = (doses, today) => doses.filter((d) => String(d.date).slice(0, 10) === today);
@@ -113,13 +112,14 @@ export async function scheduleNow(device, now = new Date()) {
   const todays = schedules.filter((s) => s.days.includes(weekday));
   const next = todays.find((s) => s.time_of_day.slice(0, 5) > hhmmNow) ?? todays[0] ?? schedules[0];
 
-  const at = nowLocal.plus({ minutes: 2 }).startOf('minute');
+  // Due right now (to the second), so the reminder goes out immediately below.
+  const at = nowLocal.startOf('second');
   const date = at.toISODate();
   const schedule = must(
     await supabase
       .from('schedules')
       .update({
-        time_of_day: at.toFormat('HH:mm'),
+        time_of_day: at.toFormat('HH:mm:ss'),
         days: [...new Set([...next.days, at.weekday % 7])].sort(),
         window_before_min: 0, // an early open shouldn't count during the demo
         grace_min: 1,
@@ -137,6 +137,8 @@ export async function scheduleNow(device, now = new Date()) {
       .select()
       .single()
   );
-  await setLed(device, await ledFor(device, now));
+  // Run the tick now: sends the reminder and sets the LED without waiting for the scheduler.
+  // Missed follows ~1 min later, escalation ~1 min after that (scheduler ticks every 15 s).
+  await tickDevice(device, at.toJSDate());
   return { schedule, dose };
 }

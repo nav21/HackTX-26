@@ -144,11 +144,12 @@ async function careTests(userId) {
   check('C: DeviceDetail doses_today shape', detail.doses_today[0]?.label === 'Test meds' && detail.doses_today[0]?.source === 'manual', detail.doses_today);
   check('C: today counts the dose', detail.today.taken === 1 && detail.today.total === 1, detail.today);
 
-  // Demo time-shift on B: fresh dose ~1-2 min out, then reminder → missed → escalated a minute apart.
+  // Demo "dose now" on B: due immediately with the reminder already sent, then missed → escalated a minute apart.
   const shifted = await care.scheduleNow(await fresh(b.id));
   const due = DateTime.fromISO(shifted.dose.scheduled_at);
   const lead = due.diff(DateTime.now(), 'seconds').seconds;
-  check('demo: dose 60-120 s out, grace/escalate 1 min', lead > 55 && lead <= 121 && shifted.schedule.grace_min === 1 && shifted.schedule.escalate_after_min === 1, { lead, s: shifted.schedule });
+  check('demo: dose due now, grace/escalate 1 min', lead > -5 && lead <= 0 && shifted.schedule.grace_min === 1 && shifted.schedule.escalate_after_min === 1, { lead, s: shifted.schedule });
+  check('demo: reminder sent immediately', count(await types(b.id), 'reminder_sent') === 1);
   for (const m of [0, 1, 2]) await care.tickDevice(await fresh(b.id), at(due.plus({ minutes: m, seconds: 1 })));
   const demoDose = (await dosesOf(b.id)).find((d) => d.id === shifted.dose.id);
   const bTypes = await types(b.id);
