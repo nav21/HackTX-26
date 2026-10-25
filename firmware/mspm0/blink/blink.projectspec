@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Import in CCS: File > Import Projects > select this file. Needs the MSPM0 SDK (C:\ti\mspm0_sdk_2_11_00_07). -->
+<projectSpec>
+    <applicability>
+        <when>
+            <context deviceFamily="ARM" deviceId="MSPM0G3507"/>
+        </when>
+    </applicability>
+    <project
+        title="bws_blink"
+        name="bws_blink"
+        configurations="Debug"
+        toolChain="TICLANG"
+        connection="TIXDS110_Connection.xml"
+        device="MSPM0G3507"
+        ignoreDefaultDeviceSettings="false"
+        ignoreDefaultCCSSettings="true"
+        products="MSPM0-SDK"
+        compilerBuildOptions="
+            -I${PROJECT_ROOT}
+            -D__MSPM0G3507__
+            -O2
+            -I${COM_TI_MSPM0_SDK_INSTALL_DIR}/source/third_party/CMSIS/Core/Include
+            -I${COM_TI_MSPM0_SDK_INSTALL_DIR}/source
+            -mcpu=cortex-m0plus
+            -march=thumbv6m
+            -mfloat-abi=soft
+            -mthumb
+            -Wall
+            -gdwarf-3
+        "
+        linkerBuildOptions="
+            -l${COM_TI_MSPM0_SDK_INSTALL_DIR}/source/ti/driverlib/lib/ticlang/m0p/mspm0g1x0x_g3x0x/driverlib.a
+            -L${COM_TI_MSPM0_SDK_INSTALL_DIR}/source
+            -L${PROJECT_ROOT}
+            -Wl,--rom_model
+            -Wl,--warn_sections
+            -L${CG_TOOL_ROOT}/lib
+            -llibc.a
+        "
+        sourceLookupPath="${COM_TI_MSPM0_SDK_INSTALL_DIR}/source/ti/driverlib"
+        description="BWS blink firmware for LP-MSPM0G3507">
+        <property name="buildProfile" value="release"/>
+        <file path="main.c" openOnCreation="true" excludeFromBuild="false" action="link"/>
+        <file path="../common/startup_mspm0g350x_ticlang.c" openOnCreation="false" excludeFromBuild="false" action="link"/>
+        <file path="../common/mspm0g3507.cmd" openOnCreation="false" excludeFromBuild="false" action="link"/>
+    </project>
+</projectSpec>
