@@ -18,8 +18,10 @@ export function PanelCard({ as = "section", className, children, ...props }) {
 export function PanelHeader({ icon: Icon, title, description, action, id }) {
   return (
     // Wraps so a wide action (e.g. the verified badge) drops below instead of overlapping the title.
+    // The title block never shrinks (max-w-full still lets a long title wrap on a phone); otherwise the
+    // browser squeezes the title onto two lines next to the badge instead of wrapping the badge.
     <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
-      <div className="flex min-w-0 items-start gap-3">
+      <div className="flex max-w-full min-w-0 shrink-0 items-start gap-3">
         {Icon ? (
           <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-inner bg-raised text-subtle">
             <Icon className="size-4" aria-hidden />
@@ -32,7 +34,7 @@ export function PanelHeader({ icon: Icon, title, description, action, id }) {
           {description ? <p className="mt-0.5 text-sm text-subtle">{description}</p> : null}
         </div>
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {action ? <div className="max-w-full min-w-0 shrink-0">{action}</div> : null}
     </div>
   )
 }
