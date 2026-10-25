@@ -22,11 +22,27 @@ cp .env.example .env     # then fill it in
 | Variable | Meaning |
 | --- | --- |
 | `API_URL` | Server base URL, e.g. `http://localhost:3001` or the deployed URL. No trailing slash needed. |
-| `DEVICE_ID` | Printed by `npm run create-device` in `/server` |
-| `DEVICE_SECRET` | Printed once by `create-device` (the server only stores a hash) |
+| `DEVICE_ID` | Printed by `npm run create-device` (new device) or `npm run device:rotate-secret` (existing device) in `/server` |
+| `DEVICE_SECRET` | Printed once by either script (the server only stores a hash) |
 | `SERIAL_PATH` | e.g. `COM3`, `/dev/ttyACM0`, `/dev/cu.usbmodem1101`. Leave **empty** to auto-detect an Arduino. |
 
 Missing variables produce a clear error at startup. `.env` is git-ignored: never commit the secret.
+
+### One board, several devices
+
+The bridge always authenticates as one device (the "board"), but its lid events **follow the device its
+owner currently has open in the app**: opening Grandma's pillbox page makes the real box count as the
+pillbox (dose taken), opening the Creatine tub makes it count as the tub (streak), and so on. The server does
+this (`profiles.live_device_id`, see API.md); the bridge protocol doesn't change. The device page shows a
+"Real box live here" chip on the device that's being driven. If nothing is open yet, or the owner doesn't own
+that device, events land on the board's own device as usual. The simulator is unaffected.
+
+To run the board as one of your existing devices, give it a fresh secret (the old one stops working):
+
+```bash
+cd server
+npm run device:rotate-secret -- --name "Grandma's pillbox" --owner you@example.com   # or: -- --device <id>
+```
 
 ## Run
 
@@ -100,7 +116,7 @@ If your board isn't found, set `SERIAL_PATH` explicitly.
 - **"No Arduino found on any serial port":** check the cable (some are charge-only), try another USB port, and
   look in Device Manager > Ports (COM & LPT). Clone boards need the CH340 driver. Then set `SERIAL_PATH=COMx`.
 - **`HTTP 401 unauthorized`:** wrong `DEVICE_ID` / `DEVICE_SECRET`. The secret is only shown once by
-  `create-device`; create a new device if lost. The bridge keeps retrying, so fixing `.env` and restarting is enough.
+  `create-device`; if lost, run `npm run device:rotate-secret` for that device. The bridge keeps retrying, so fixing `.env` and restarting is enough.
 - **`cannot reach http://... (ECONNREFUSED)`:** the server isn't running or `API_URL` is wrong. Events are
   queued and sent when it is back. On Render's free tier the first request after idle can take ~30 s.
 - **Garbled lines / "ignoring malformed line":** baud mismatch (must be 115200) or a half-line while the board

@@ -131,10 +131,11 @@ Heartbeats are **not** stored as events (they only update `last_seen_at`).
 Sign-up happens in the client through Supabase: `supabase.auth.signUp({ email, password, options: { data: { display_name } } })`. The profiles trigger copies `raw_user_meta_data.display_name`. The client asks once per session for a name when `display_name` is empty or equals the email's local part, then sends `PATCH /api/me`.
 
 ### GET /api/me
-→ `{ id, email, display_name, avatar_url, timezone }`
+→ `{ id, email, display_name, avatar_url, timezone, live_device_id: string|null }`
 
 ### PATCH /api/me
-body `{ display_name?: string (1-50), timezone?: IANA string }` → same as GET
+body `{ display_name?: string (1-50), timezone?: IANA string, live_device_id?: string|null }` → same as GET
+- `live_device_id`: the device the caller's physical board drives (see POST /api/device/events). The client sets it whenever an owner opens a device page. Must be a device the caller **owns**: `404 not_found` if they aren't a member, `403 forbidden` if they're a caregiver/viewer. `null` clears it. Unclaiming a device clears it for anyone pointing at it.
 
 ## Devices
 
@@ -303,6 +304,7 @@ body `{ events: [{ type: "OPEN" | "CLOSE" | "HB" | "BOOT", seq: number, ldr?: nu
 - `at` is when the bridge read the line (defaults to server receive time; clamped if > 5 min in the future). Always send it: dedupe relies on it.
 - Duplicates are ignored, so the bridge can retry safely: an event is a duplicate if `seq <= last_seq` for this boot and its `at` isn't newer than the last counted event. A lower `seq` with a newer `at` is treated as an unannounced reboot (new counter). `BOOT` resets the counter; a BOOT whose `at` isn't newer than the last boot is a duplicate.
 - Any authenticated batch bumps `last_seen_at` (and logs `online` if the device was offline). HB stores no event row.
+- **Live device routing (one board, many devices):** if the board's owner has `profiles.live_device_id` = L, L is not the board, and the owner owns L, accepted OPEN/CLOSE events are recorded on **L** (L's lid_state, L's mode rules: Care dose, Habit streak/post, Security alert) with `source: "device"`, the board's `seq`, and `payload.via_device_id` = the board's id. Every batch also bumps L's `last_seen_at` (so the viewed device shows Online). Dedupe, `seq`/BOOT counters and `last_seen_at` stay on the board. With no live device (or a stale one) nothing changes.
 - 400s are permanent (the bridge drops the batch); everything else is retryable.
 
 ### GET /api/device/commands

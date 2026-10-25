@@ -104,6 +104,7 @@ router.delete('/:id', loadDevice('owner'), async (req, res) => {
   for (const table of ['schedules', 'dose_instances', 'streaks', 'ai_insights', 'device_members']) {
     must(await supabase.from(table).delete().eq('device_id', id));
   }
+  must(await supabase.from('profiles').update({ live_device_id: null }).eq('live_device_id', id)); // stop relaying the board here
   await setLed(device, 'OFF');
   res.status(204).end();
 });

@@ -28,6 +28,9 @@ test('patchMe', () => {
   assert.ok(ok(s.patchMe, { display_name: 'Nav', timezone: 'America/Chicago' }));
   assert.ok(!ok(s.patchMe, { display_name: 'x'.repeat(51) }));
   assert.ok(!ok(s.patchMe, { timezone: 'Central Time' }));
+  assert.ok(ok(s.patchMe, { live_device_id: '6f1c2b8e-3d4a-4f5b-9c6d-7e8f9a0b1c2d' }));
+  assert.ok(ok(s.patchMe, { live_device_id: null }));
+  assert.ok(!ok(s.patchMe, { live_device_id: 'not-a-uuid' }));
 });
 
 test('addMember lowercases email', () => {
