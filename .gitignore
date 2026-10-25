@@ -9,6 +9,8 @@ pnpm-debug.log*
 .env
 .env.*
 !.env.example
+# Device secrets written by seed-demo --secrets-out
+*.env
 
 # Build
 dist/
