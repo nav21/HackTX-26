@@ -19,7 +19,7 @@ router.use(requireUser);
 // Config a device returns to when unclaimed (the pairing code stays the same: it's printed on the box).
 const UNCLAIMED = {
   claimed_at: null,
-  name: 'TSwift',
+  name: 'TSWIFT',
   mode: 'care',
   container_type: 'other',
   icon: null,
@@ -120,7 +120,7 @@ router.post('/:id/members', loadDevice('owner'), validate({ body: addMember }), 
   const profile = must(
     await supabase.from('profiles').select('id, display_name, email, avatar_url').eq('email', email).limit(1)
   )[0];
-  if (!profile) throw notFound('No TSwift account with that email');
+  if (!profile) throw notFound('No TSWIFT account with that email');
 
   const { error } = await supabase.from('device_members').insert({ device_id: req.device.id, user_id: profile.id, role });
   if (error?.code === '23505') throw conflict('Already a member of this device');

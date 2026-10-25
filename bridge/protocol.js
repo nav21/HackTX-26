@@ -1,4 +1,4 @@
-// Pure helpers for the TSwift serial line protocol (SPEC.md section 4.3).
+// Pure helpers for the TSWIFT serial line protocol (SPEC.md section 4.3).
 // No I/O in here so it is trivially unit-testable.
 
 const UINT = /^\d{1,9}$/;

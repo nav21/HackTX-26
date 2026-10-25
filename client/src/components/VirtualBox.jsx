@@ -1,5 +1,5 @@
 /**
- * VirtualBox — the TSwift box illustration. The product's identity.
+ * VirtualBox — the TSWIFT box illustration. The product's identity.
  *
  * A small 3D model (oblique projection) drawn as SVG with a slightly
  * hand-drawn wobble. The lid is hinged on its back edge and swings open on a
@@ -16,7 +16,7 @@
  *  peek        boolean            lift the lid a little (controlled — e.g. while a parent card is hovered)
  *  peekOnHover boolean            lid lifts a little while the box itself is hovered
  *  rays        boolean            light rays when open (default true)
- *  label       string             text on the front face (default "TSwift"; "" hides it)
+ *  label       string             text on the front face (default "TSWIFT"; "" hides it)
  *  title       string             accessible name (defaults to a description of the state)
  *  className   string
  *
@@ -140,7 +140,7 @@ export default function VirtualBox({
   peek = false,
   peekOnHover = false,
   rays = true,
-  label = "TSwift",
+  label = "TSWIFT",
   title,
   className,
 }) {
@@ -188,7 +188,7 @@ export default function VirtualBox({
   const interactive = typeof onToggle === "function"
   const name =
     title ??
-    `${label || "TSwift"} box, lid ${open ? "open" : "closed"}${ledState ? `, light ${ledState.label.toLowerCase()}` : ""}`
+    `${label || "TSWIFT"} box, lid ${open ? "open" : "closed"}${ledState ? `, light ${ledState.label.toLowerCase()}` : ""}`
 
   function onKeyDown(e) {
     if (!interactive) return

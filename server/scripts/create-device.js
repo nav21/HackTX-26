@@ -7,7 +7,7 @@ import { parseArgs } from 'node:util';
 import { supabase } from '../supabase.js';
 import { hashSecret } from '../middleware/deviceAuth.js';
 
-const { values } = parseArgs({ options: { name: { type: 'string', default: 'TSwift' } } });
+const { values } = parseArgs({ options: { name: { type: 'string', default: 'TSWIFT' } } });
 
 if (!supabase) {
   console.error('[create-device] SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing in server/.env');

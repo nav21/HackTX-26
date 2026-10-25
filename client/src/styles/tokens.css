@@ -1,5 +1,5 @@
 /*
- * TSwift design tokens — the single source for color, shape, space, type and motion.
+ * TSWIFT design tokens — the single source for color, shape, space, type and motion.
  * Every page and component uses these (via Tailwind utilities wired in index.css).
  * Do not add one-off hex values or pixel sizes anywhere else.
  */

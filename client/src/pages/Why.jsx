@@ -20,7 +20,7 @@ const STORIES = [
     photo: { src: null, alt: "A grandmother at her kitchen table with a weekly pill organizer" },
     body: [
       "Our grandmothers take medicine every day, and none of us could ever really tell whether they had. A call that went unanswered turned into worry. Asking “did you take your pills?” felt like nagging, and the answer was usually “I think so.”",
-      "Nobody had a clear picture, so everyone was stressed for no reason: them for being checked on, us for not knowing. TSwift lets the pillbox answer instead. Taken, late, or missed, the family just knows.",
+      "Nobody had a clear picture, so everyone was stressed for no reason: them for being checked on, us for not knowing. TSWIFT lets the pillbox answer instead. Taken, late, or missed, the family just knows.",
     ],
   },
   {
@@ -87,7 +87,7 @@ export default function Why() {
 
       <main>
         <section className="page pt-6 pb-12 sm:pt-12 sm:pb-16 lg:pt-16">
-          <p className="text-sm font-medium text-accent">Why we built TSwift</p>
+          <p className="text-sm font-medium text-accent">Why we built TSWIFT</p>
           <h1 className="mt-3 max-w-[18ch] text-display font-semibold tracking-[-0.03em] sm:text-hero">
             Small worries, every day.
           </h1>
@@ -137,7 +137,7 @@ export default function Why() {
         <div className="page flex flex-col gap-2 py-8 text-sm text-faint sm:flex-row sm:items-center sm:justify-between">
           <span className="flex items-center gap-2 text-subtle">
             <BoxMark className="size-5" />
-            TSwift
+            TSWIFT
           </span>
           <span>Built at HackTX 2026. Updates are informational, not medical advice.</span>
         </div>

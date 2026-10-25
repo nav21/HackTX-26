@@ -5,7 +5,7 @@ export function errorMessage(err, fallback = "Something went wrong. Try again.")
   const apiMessage = err.response?.data?.error?.message
   if (apiMessage) return apiMessage
   if (err.code === "ERR_NETWORK" || err.message === "Network Error") {
-    return "Can't reach the TSwift server. Check your connection and try again."
+    return "Can't reach the TSWIFT server. Check your connection and try again."
   }
   if (err.response?.status === 404) return "Not found."
   if (err.response?.status >= 500) return "The server had a problem. Try again in a moment."
