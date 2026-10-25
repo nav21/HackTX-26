@@ -23,7 +23,7 @@ export const MODES = [
     example: "Your creatine tub keeps the group streak alive.",
     rule: "The first opening each day keeps your streak. Your group sees it in the feed.",
     clock: "7:30",
-    notification: { title: "Gym crew", body: "Nav took creatine 💪 · 6-day streak" },
+    notification: { title: "Gym crew", body: "Nav took creatine 💪 · 6‑day streak" },
     led: "G",
   },
   {

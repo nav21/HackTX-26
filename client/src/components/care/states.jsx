@@ -17,7 +17,8 @@ export function PanelCard({ as = "section", className, children, ...props }) {
 /** Section title row. `icon` is a lucide component; `action` sits on the right. */
 export function PanelHeader({ icon: Icon, title, description, action, id }) {
   return (
-    <div className="flex items-start justify-between gap-3">
+    // Wraps so a wide action (e.g. the verified badge) drops below instead of overlapping the title.
+    <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
       <div className="flex min-w-0 items-start gap-3">
         {Icon ? (
           <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-inner bg-raised text-subtle">

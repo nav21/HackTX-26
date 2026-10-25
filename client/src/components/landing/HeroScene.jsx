@@ -120,7 +120,7 @@ export default function HeroScene() {
   return (
     <div ref={ref} data-mode={mode.id} className="flex flex-col items-center gap-6">
       <div className="relative aspect-[25/23] w-full max-w-[560px]">
-        <div className="absolute bottom-0 -left-[2%] w-[66%] sm:w-[68%]">
+        <div className="absolute bottom-0 -left-[5%] w-[66%] sm:-left-[9%] sm:w-[68%]">
           <VirtualBox size="fluid" open={lidOpen} led={ledOn ? mode.led : "OFF"} />
         </div>
         <div className="absolute top-0 right-0 z-10 w-[47%] sm:w-[43%]">
