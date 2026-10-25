@@ -12,14 +12,16 @@ export default function ModeCards() {
         </p>
       </div>
 
-      <ul className="mt-10 grid gap-4 sm:mt-14 md:grid-cols-3 md:gap-6">
+      {/* Side by side, each card spans three shared rows (header, headline, rule) via subgrid,
+          so headlines get the same height and the dividers/descriptions line up across cards. */}
+      <ul className="mt-10 grid gap-4 sm:mt-14 md:grid-cols-3 md:gap-x-6 md:gap-y-0">
         {MODES.map((m) => {
           const Icon = m.icon
           return (
             <li
               key={m.id}
               data-mode={m.id}
-              className="group relative flex flex-col overflow-hidden rounded-card bg-surface p-6 ring-1 ring-line sm:p-8"
+              className="group relative flex flex-col overflow-hidden rounded-card bg-surface p-6 ring-1 ring-line sm:p-8 md:row-span-3 md:grid md:grid-rows-subgrid md:gap-y-0"
             >
               {/* a thin accent edge where the lid would be */}
               <span className="absolute inset-x-6 top-0 h-px bg-accent/60 sm:inset-x-8" aria-hidden />
@@ -33,7 +35,7 @@ export default function ModeCards() {
                 </div>
               </div>
               <p className="mt-6 font-display text-xl font-medium text-balance text-text sm:mt-8">{m.example}</p>
-              <p className="mt-6 border-t border-line pt-4 text-sm text-subtle sm:mt-auto sm:pt-5">{m.rule}</p>
+              <p className="mt-6 border-t border-line pt-4 text-sm text-subtle sm:pt-5">{m.rule}</p>
             </li>
           )
         })}
