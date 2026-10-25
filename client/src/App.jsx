@@ -18,6 +18,7 @@ import Login from "@/pages/Login"
 import Notifications from "@/pages/Notifications"
 import Simulator from "@/pages/Simulator"
 import Styleguide from "@/pages/Styleguide"
+import Why from "@/pages/Why"
 
 // Any src/pages/Preview<Name>.jsx is mounted at /styleguide/<name> (public, sample data).
 const previewRoutes = Object.entries(import.meta.glob("./pages/Preview*.jsx")).map(([file, load]) => {
@@ -43,6 +44,7 @@ export default function App() {
               <RealtimeProvider>
                 <Routes>
                   <Route path="/" element={<Landing />} />
+                  <Route path="/why" element={<Why />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/styleguide" element={<Styleguide />} />
                   {previewRoutes.map(({ path, Component }) => (
