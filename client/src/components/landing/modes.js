@@ -8,7 +8,7 @@ export const MODES = [
     audience: "For family",
     icon: Pill,
     container: "Grandma's pillbox",
-    example: "Grandma's pillbox tells the family she took her 8 AM meds.",
+    example: "Grandma's pillbox tells the family she took her meds.",
     rule: "Opened on time counts as taken. If it stays shut past the grace period, the family gets an alert.",
     clock: "8:12",
     notification: { title: "Grandma's pillbox", body: "Grandma took her 8 AM meds · 8:12" },
