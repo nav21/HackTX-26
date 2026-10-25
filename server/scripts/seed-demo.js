@@ -512,7 +512,7 @@ async function seedDevice(spec, { people, groupId, start, secrets }) {
     lid_state: 'closed',
     icon: null,
     created_at: iso(start - 600_000),
-    ...(spec.key === 'care' && { mode: 'care', container_type: 'pillbox', tone: 'supportive' }),
+    ...(spec.key === 'care' && { mode: 'care', container_type: 'pillbox', tone: 'supportive', person_name: PERSON, person_pronoun: 'her' }), // live alerts read "Grandma took her … meds"
     ...(spec.key === 'habit' && { mode: 'habit', container_type: 'supplement', tone: 'roast', habit_label: 'Creatine', habit_action: 'took creatine', reminder_time: '09:00' }),
     ...(spec.key === 'friend' && { mode: 'habit', container_type: 'supplement', tone: 'roast', habit_label: 'Protein', habit_action: 'had a protein shake', reminder_time: '20:00' }),
     ...(spec.key === 'security' && { mode: 'security', container_type: 'backpack', tone: 'supportive' }),
