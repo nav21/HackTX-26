@@ -1,8 +1,9 @@
 /**
  * HabitPanel — the Habit-mode body of the device page.
  *
- * Streak counter · 30-day consistency grid · nudge settings (tone + daily
- * reminder) · the habit group (open it, or join / create one).
+ * Streak counter · 30-day consistency grid · the habit group (open it, or join /
+ * create one), full width · daily reminder. (The nudge tone stays on the device; it's
+ * just not shown here.)
  *
  * `HabitPanel` fetches (streak, groups) and wires the PATCHes.
  * `HabitPanelView` is presentational, so previews can pass sample data.
@@ -10,7 +11,6 @@
  * HabitPanel props:     device (DeviceDetail), canManage (owner?)
  * HabitPanelView props: device, canManage,
  *   streak     { current, best, history, loading, error, onRetry }   GET /streak?days=30
- *   onToneChange(tone), toneSaving
  *   onReminderChange("HH:MM" | null), reminderSaving                  PATCH reminder_time
  *   groups     { list, loading }                                      GET /api/groups
  *   onAttachGroup(groupId), attaching                                  PATCH group_id
@@ -23,7 +23,6 @@ import GroupJoinCreate from "@/components/group/GroupJoinCreate"
 import ConsistencyGrid from "@/components/habit/ConsistencyGrid"
 import HabitReminderSetting from "@/components/habit/HabitReminderSetting"
 import StreakCounter from "@/components/habit/StreakCounter"
-import ToneToggle from "@/components/habit/ToneToggle"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { errorMessage } from "@/lib/errors"
@@ -110,8 +109,6 @@ export function HabitPanelView({
   device,
   canManage = false,
   streak = {},
-  onToneChange,
-  toneSaving = false,
   onReminderChange,
   reminderSaving = false,
   groups,
@@ -147,27 +144,22 @@ export function HabitPanelView({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 @[44rem]:grid-cols-2">
-        <PanelCard aria-label="Nudges" className="gap-6">
-          <ToneToggle value={device?.tone} onChange={onToneChange} saving={toneSaving} disabled={!canManage} />
-          <div className="border-t border-line pt-6">
-            <HabitReminderSetting
-              value={device?.reminder_time ?? null}
-              onChange={onReminderChange}
-              saving={reminderSaving}
-              disabled={!canManage}
-            />
-          </div>
-        </PanelCard>
-        <GroupCard
-          device={device}
-          canManage={canManage}
-          groups={groups}
-          onAttachGroup={onAttachGroup}
-          attaching={attaching}
-          joinSlot={joinSlot}
+      <GroupCard
+        device={device}
+        canManage={canManage}
+        groups={groups}
+        onAttachGroup={onAttachGroup}
+        attaching={attaching}
+        joinSlot={joinSlot}
+      />
+      <PanelCard aria-label="Reminder">
+        <HabitReminderSetting
+          value={device?.reminder_time ?? null}
+          onChange={onReminderChange}
+          saving={reminderSaving}
+          disabled={!canManage}
         />
-      </div>
+      </PanelCard>
     </div>
   )
 }
@@ -176,7 +168,6 @@ export default function HabitPanel({ device, canManage = false, className }) {
   const id = device?.id
   const streak = useStreak(id)
   const groups = useGroups()
-  const tone = useUpdateDevice(id)
   const reminder = useUpdateDevice(id)
   const group = useUpdateDevice(id)
   const refreshGroups = useRefreshGroups()
@@ -204,8 +195,6 @@ export default function HabitPanel({ device, canManage = false, className }) {
         error: streak.error ? errorMessage(streak.error, "Couldn't load your streak.") : null,
         onRetry: () => streak.refetch(),
       }}
-      onToneChange={(next) => save(tone, { tone: next }, "Couldn't change the tone.")}
-      toneSaving={tone.isPending}
       onReminderChange={(next) =>
         save(reminder, { reminder_time: next }, "Couldn't save the reminder.", next ? "Reminder saved" : "Reminder off")
       }

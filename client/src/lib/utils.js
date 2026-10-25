@@ -1,6 +1,6 @@
 import { createCn } from "cn/config"
 
-// Teach the class merger about BWS tokens so e.g. `text-display` (a size) and
+// Teach the class merger about TSwift tokens so e.g. `text-display` (a size) and
 // `text-accent` (a color) don't cancel each other out.
 export const cn = createCn({
   extend: {

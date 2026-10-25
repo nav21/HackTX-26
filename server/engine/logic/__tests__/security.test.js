@@ -27,7 +27,7 @@ describe('securityOnOpen', () => {
     const out = securityOnOpen({ device: { ...device, silent: true }, openedAt: T('15:42') });
     assert.deepEqual(pick(out, 'event')[0].payload, { silent: true });
     assert.equal(pick(out, 'led').length, 0);
-    assert.equal(pick(out, 'notify')[0].body, 'Silent alarm · box LED unchanged');
+    assert.equal(pick(out, 'notify')[0].body, 'Silent alarm · no siren');
   });
 
   test('disarmed → nothing extra', () => {

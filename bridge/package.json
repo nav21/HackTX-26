@@ -2,7 +2,7 @@
   "name": "bws-bridge",
   "version": "1.0.0",
   "private": true,
-  "description": "BWS serial bridge: forwards Arduino lid events to the API and delivers LED commands to the box",
+  "description": "TSwift serial bridge: forwards Arduino lid events to the API and delivers LED commands to the box",
   "type": "module",
   "main": "index.js",
   "engines": {

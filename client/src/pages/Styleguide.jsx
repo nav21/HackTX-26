@@ -518,7 +518,7 @@ function TimelineSection({ events, now }) {
           <EventTimeline events={[]} title="Empty" />
         </Surface>
         <Surface>
-          <EventTimeline error="Can't reach the BWS server. Check your connection and try again." onRetry={() => {}} title="Error" />
+          <EventTimeline error="Can't reach the TSwift server. Check your connection and try again." onRetry={() => {}} title="Error" />
         </Surface>
       </div>
     </div>
@@ -537,8 +537,8 @@ function MembersSection() {
           onInvite={async ({ email, role }) => {
             await new Promise((r) => setTimeout(r, 500))
             if (!email.includes("@example.com")) {
-              const err = new Error("No BWS account with that email")
-              err.response = { data: { error: { code: "not_found", message: "No BWS account with that email" } } }
+              const err = new Error("No TSwift account with that email")
+              err.response = { data: { error: { code: "not_found", message: "No TSwift account with that email" } } }
               throw err
             }
             setMembers((m) => [...m, { user_id: email, display_name: null, email, avatar_url: null, role }])
@@ -556,7 +556,7 @@ function MembersSection() {
           <MembersPanel loading title="Loading" description={null} />
         </Surface>
         <Surface>
-          <MembersPanel error="Can't reach the BWS server." onRetry={() => {}} title="Error" description={null} />
+          <MembersPanel error="Can't reach the TSwift server." onRetry={() => {}} title="Error" description={null} />
         </Surface>
       </div>
     </div>
@@ -596,7 +596,7 @@ function StatesSection() {
         <EmptyState
           boxSize="lg"
           peek
-          title="Add your first BWS"
+          title="Add your first TSwift"
           body="Put the sensor in any container: a pillbox, a drawer, a backpack. You decide what an opening means."
           action={
             <Button size="lg">
@@ -606,7 +606,7 @@ function StatesSection() {
         />
       </div>
       <div className="flex flex-col gap-4">
-        <InlineError message="Can't reach the BWS server. Check your connection and try again." onRetry={() => {}} />
+        <InlineError message="Can't reach the TSwift server. Check your connection and try again." onRetry={() => {}} />
         <InlineError message="That code doesn't match a box." />
         <div className="rounded-card border border-line bg-surface">
           <EmptyState title="No notifications yet" body="Reminders, check-ins and alerts from your boxes land here." />
@@ -730,7 +730,7 @@ export default function Styleguide() {
         <main className="flex min-w-0 flex-col gap-12">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="max-w-xl">
-              <h1 className="text-3xl font-semibold">BWS design system</h1>
+              <h1 className="text-3xl font-semibold">TSwift design system</h1>
               <p className="mt-2 text-base text-subtle">
                 Calm, warm, a little playful. Every page is built from these tokens and components, shown here in each
                 state with sample data.

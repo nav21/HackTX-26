@@ -1,4 +1,4 @@
-# BWS bridge
+# TSwift bridge
 
 A small Node script that runs on the laptop the Arduino is plugged into. It is a dumb pipe:
 

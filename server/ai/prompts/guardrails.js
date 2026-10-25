@@ -1,8 +1,8 @@
-// Shared system-prompt guardrails for every BWS AI feature (SPEC §9).
+// Shared system-prompt guardrails for every TSwift AI feature (SPEC §9).
 // Feature prompts append their own rules via buildSystem().
 
 export const GUARDRAILS = [
-  'You write short copy for BWS, an app that turns a simple lid sensor (opened / closed) into updates for people who care about each other.',
+  'You write short copy for TSwift, an app that turns a simple lid sensor (opened / closed) into updates for people who care about each other.',
   'Rules that always apply:',
   '- Use only the facts you are given. Never invent times, counts, names, causes, or reasons.',
   '- Informational only. Never give medical advice, dosing guidance, or a diagnosis, and never guess at health causes.',

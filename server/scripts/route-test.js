@@ -146,7 +146,7 @@ try {
   // ---- members
   check('add self → 409', (await call('POST', `${D}/members`, { email: profile.email, role: 'caregiver' })).status === 409);
   r = await call('POST', `${D}/members`, { email: 'nobody@example.invalid', role: 'viewer' });
-  check('add unknown email → 404', r.status === 404 && r.body.error.message.includes('No BWS account'), r);
+  check('add unknown email → 404', r.status === 404 && r.body.error.message.includes('No TSwift account'), r);
   check("remove owner → 400", (await call('DELETE', `${D}/members/${profile.id}`)).status === 400);
 
   // ---- habit + groups
@@ -199,7 +199,7 @@ try {
   check('DELETE device → 204', (await call('DELETE', D)).status === 204);
   check('then GET → 404', (await call('GET', D)).status === 404);
   const after = (await supabase.from('devices').select('claimed_at, mode, name').eq('id', raw.id).single()).data;
-  check('device reset + claimable again', after.claimed_at === null && after.mode === 'care' && after.name === 'BWS', after);
+  check('device reset + claimable again', after.claimed_at === null && after.mode === 'care' && after.name === 'TSwift', after);
   check('unclaim clears live_device_id', (await call('GET', '/me')).body.live_device_id === null);
 } catch (err) {
   failures++;
