@@ -12,6 +12,7 @@ import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
+import { playAlarm } from "@/lib/alarmSound"
 import { useAuth } from "@/context/AuthContext"
 import { supabase } from "@/lib/supabase"
 import { careKeys, keys, patchDeviceCaches, prependEvent } from "@/lib/queries"
@@ -141,6 +142,8 @@ export function RealtimeProvider({ children }) {
         }
         if (row.urgent) toast.error(row.title, { ...opts, duration: Infinity, closeButton: true })
         else toast(row.title, { ...opts, duration: 6000 })
+        // Armed device opened: sound the siren, unless the device is set to silent alarm.
+        if (row.kind === "alert" && !row.body?.startsWith("Silent alarm")) playAlarm()
         showBrowserNotification(row, go)
         if (row.kind === "daily_summary" && row.device_id) invalidateSoon(careKeys.insights(row.device_id, "daily_summary"))
       } else if (eventType === "UPDATE") {
