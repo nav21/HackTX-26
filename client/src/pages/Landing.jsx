@@ -60,7 +60,7 @@ export default function Landing() {
           <div className="page flex flex-col gap-2 py-8 text-sm text-faint sm:flex-row sm:items-center sm:justify-between">
             <span className="flex items-center gap-2 text-subtle">
               <BoxMark className="size-5" />
-              Box With Sensor
+              TSwift
             </span>
             <span>Built at HackTX 2026. Updates are informational, not medical advice.</span>
           </div>
