@@ -9,21 +9,21 @@
  *  timeline        { events, loading, error, onRetry, hasMore, onLoadMore, loadingMore }
  *  verifyBadge     node (VerifiedBadge) shown on top of the timeline
  *  canManage       owner?
- *  onModeChange    (mode) => void
  *  onOpenSettings  () => void
  *  panel           node — overrides the default (connected) ModePanel; previews
  *                  pass a *PanelView with sample data here
  *  In Security mode the rail shows the access log instead of the timeline.
  *  backTo          link for "Devices"
+ *  The mode is fixed on this page (shown as a badge); it's picked when the box is added.
  *  liveHere        the owner's physical box currently drives this device (me.live_device_id)
  */
-import { ChevronLeft, MonitorSmartphone, Radio, Settings2 } from "lucide-react"
+import { ChevronLeft, Radio, Settings2 } from "lucide-react"
 import { Link } from "react-router-dom"
 import ContainerTile from "@/components/device/ContainerTile"
 import EventTimeline from "@/components/device/EventTimeline"
 import LidIndicator from "@/components/device/LidIndicator"
 import LiveBoxCard from "@/components/device/LiveBoxCard"
-import ModeSwitcher from "@/components/device/ModeSwitcher"
+import ModeBadge from "@/components/device/ModeBadge"
 import StatusPill from "@/components/device/StatusPill"
 import ModePanel, { ModeTransition } from "@/components/panels/ModePanel"
 import { SecurityAccessLog } from "@/components/panels/SecurityPanel"
@@ -39,11 +39,9 @@ export default function DeviceView({
   timeline = {},
   verifyBadge,
   canManage = false,
-  onModeChange,
   onOpenSettings,
   panel,
   backTo = "/app",
-  simulatorTo,
   liveHere = false,
   className,
 }) {
@@ -93,20 +91,7 @@ export default function DeviceView({
           </Button>
         </div>
         <div className="flex items-center gap-2">
-          <ModeSwitcher
-            value={device.mode}
-            onChange={onModeChange}
-            disabled={!canManage}
-            disabledReason="Only the owner can switch modes"
-            className="w-full @3xl:w-auto"
-          />
-          {canManage && simulatorTo ? (
-            <Button variant="ghost" size="icon" asChild className="hidden @3xl:inline-flex">
-              <Link to={simulatorTo} aria-label="Open the simulator" title="Simulator">
-                <MonitorSmartphone className="size-5" />
-              </Link>
-            </Button>
-          ) : null}
+          <ModeBadge mode={device.mode} size="md" />
           <Button
             variant="ghost"
             size="icon"

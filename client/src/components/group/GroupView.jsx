@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
-import GroupFeed from "./GroupFeed"
 import GroupInvite from "./GroupInvite"
 import Leaderboard from "./Leaderboard"
 import WhoDoneToday from "./WhoDoneToday"
@@ -11,7 +10,7 @@ import { GroupError, GroupSkeleton } from "./GroupStates"
  * can render every state with sample data.
  *   status: "loading" | "ready" | "error" | "not_found"
  */
-export default function GroupView({ status = "ready", group, error, onRetry, currentUserId, live = false }) {
+export default function GroupView({ status = "ready", group, error, onRetry, currentUserId }) {
   const members = group?.members ?? []
 
   return (
@@ -41,15 +40,14 @@ export default function GroupView({ status = "ready", group, error, onRetry, cur
               <GroupInvite code={group.invite_code} className="sm:w-auto sm:min-w-64" />
             </header>
 
-            <div className="mt-8 grid gap-6 [grid-template-areas:'done'_'board'_'feed'] lg:grid-cols-[minmax(0,1fr)_var(--bws-rail-width)] lg:grid-rows-[auto_1fr] lg:[grid-template-areas:'done_board'_'feed_board']">
-              <WhoDoneToday members={members} currentUserId={currentUserId} className="[grid-area:done]" />
+            {/* No post feed here: posts reach members as notifications. */}
+            <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_var(--bws-rail-width)]">
+              <WhoDoneToday members={members} currentUserId={currentUserId} />
               <Leaderboard
                 leaderboard={group.leaderboard}
                 members={members}
                 currentUserId={currentUserId}
-                className="[grid-area:board] lg:sticky lg:top-6 lg:self-start"
               />
-              <GroupFeed posts={group.feed} live={live} className="[grid-area:feed]" />
             </div>
           </>
         )}

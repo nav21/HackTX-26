@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { ChevronLeft } from "lucide-react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
-import { toast } from "sonner"
 import EmptyState from "@/components/common/EmptyState"
 import InlineError from "@/components/common/InlineError"
 import DeviceSettingsSheet from "@/components/device/DeviceSettingsSheet"
@@ -13,8 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useNow } from "@/hooks/useNow"
 import { shouldAskForNotifications } from "@/lib/browserNotifications"
 import { errorMessage } from "@/lib/errors"
-import { MODES } from "@/lib/modes"
-import { useDevice, useEvents, useMe, useSetLiveDevice, useUpdateDevice } from "@/lib/queries"
+import { useDevice, useEvents, useMe, useSetLiveDevice } from "@/lib/queries"
 
 export function DeviceViewSkeleton() {
   return (
@@ -45,7 +43,6 @@ export default function DevicePage() {
   const now = useNow()
   const q = useDevice(id)
   const ev = useEvents(id)
-  const update = useUpdateDevice(id)
   const [settingsOpen, setSettingsOpen] = useState(false)
   // after the first claim, explain + ask for browser notifications once
   const [askNotifications, setAskNotifications] = useState(
@@ -91,24 +88,13 @@ export default function DevicePage() {
   const device = q.data
   const canManage = device.role === "owner"
 
-  async function changeMode(mode) {
-    try {
-      await update.mutateAsync({ mode })
-      toast(`${device.name} is in ${MODES[mode].label} mode`, { description: MODES[mode].blurb })
-    } catch (err) {
-      toast.error(errorMessage(err, "Couldn't switch modes."))
-    }
-  }
-
   return (
     <>
       <DeviceView
         device={device}
         now={now}
         canManage={canManage}
-        onModeChange={changeMode}
         onOpenSettings={() => setSettingsOpen(true)}
-        simulatorTo={`/simulator/${device.id}`}
         liveHere={canManage && me.data?.live_device_id === device.id}
         verifyBadge={<VerifiedBadge deviceId={device.id} />}
         timeline={{

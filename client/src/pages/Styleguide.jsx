@@ -645,10 +645,8 @@ function DevicePageSection({ now }) {
       device={device}
       now={now}
       canManage
-      onModeChange={(mode) => setDevice((d) => ({ ...d, mode, ...(mode === "habit" ? sampleHabitDetailPart : mode === "security" ? sampleSecurityPart : {}) }))}
       panel={<PanelPreview device={device} onPatch={(p) => setDevice((d) => ({ ...d, ...p }))} events={events} now={now} />}
       onOpenSettings={() => {}}
-      simulatorTo="#simulator"
       liveHere
       backTo="#device-page"
       verifyBadge={<VerifiedBadgeView result={{ valid: true, checked: events.length + 117 }} onVerify={() => {}} />}
@@ -662,7 +660,7 @@ function DevicePageSection({ now }) {
         <Button variant="secondary" onClick={toggleLid}>
           {device.lid_state === "open" ? "Close the box" : "Open the box"}
         </Button>
-        <p className="text-sm text-subtle">Simulates a live event: lid, LED, card glow and the timeline update together. The mode switcher works too.</p>
+        <p className="text-sm text-subtle">Simulates a live event: lid, LED, card glow and the timeline update together.</p>
       </div>
       <div>
         <h3 className="mb-4 text-lg font-semibold">Desktop</h3>
