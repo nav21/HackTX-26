@@ -54,9 +54,10 @@ export const weekdayOf = (date) => DateTime.fromISO(normDate(date), { zone: 'UTC
 
 /** "08:00" | "08:00:00" | "8:5" → { hour, minute }. */
 export function parseTimeOfDay(s) {
-  const m = /^(\d{1,2}):(\d{1,2})/.exec(String(s ?? ''));
+  const m = /^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/.exec(String(s ?? ''));
   if (!m) throw new Error(`invalid time_of_day: ${s}`);
-  return { hour: Number(m[1]), minute: Number(m[2]) };
+  // Seconds are only set by the demo button ("dose now"); everything user-facing is HH:MM.
+  return { hour: Number(m[1]), minute: Number(m[2]), second: Number(m[3] ?? 0) };
 }
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -79,8 +80,8 @@ export function hhmm(minutesOfDay) {
  */
 export function localDateTime(date, timeOfDay, tz) {
   const [year, month, day] = normDate(date).split('-').map(Number);
-  const { hour, minute } = parseTimeOfDay(timeOfDay);
-  return DateTime.fromObject({ year, month, day, hour, minute }, { zone: tz }).toJSDate();
+  const { hour, minute, second } = parseTimeOfDay(timeOfDay);
+  return DateTime.fromObject({ year, month, day, hour, minute, second }, { zone: tz }).toJSDate();
 }
 
 /** 8, 0 → "8 AM"; 8, 12 → "8:12 AM"; 15, 42 → "3:42 PM"; 0, 0 → "12 AM". */

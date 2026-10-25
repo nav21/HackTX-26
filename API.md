@@ -288,8 +288,8 @@ A member's status comes from their first device in the group (habit mode preferr
 ## Demo (only when `DEMO_MODE=true`)
 
 ### POST /api/demo/schedule-now/:deviceId  (owner)
-Moves the next active dose of a Care device to 1 minute from now with a 1-minute grace and 1-minute escalation.
-→ `{ schedule: Schedule, dose: DoseInstance }`. Details: the dose time is the start of the minute after next (60-120 s away); `window_before_min` is set to 0 so an early open doesn't count; today's dose row is replaced by a fresh `upcoming` one. Timeline: reminder at T (LED `Y,BLINK`), missed at T+1 (`R,BLINK`, owner + caregivers), escalated at T+2 (urgent, caregivers). Opening at T..T+1 = taken, T+1..T+2 = late. This permanently edits that schedule. `400` if not in Care mode or no schedules.
+Makes the next active dose of a Care device due now (to the second), with a 1-minute grace and 1-minute escalation, and sends the reminder immediately.
+→ `{ schedule: Schedule, dose: DoseInstance }`. Details: `time_of_day` is stored as `HH:MM:SS` (the only place seconds are used; DTOs still show `HH:MM`), and the reminder is sent in the same request; `window_before_min` is set to 0 so an early open doesn't count; today's dose row is replaced by a fresh `upcoming` one. Timeline: reminder at T (LED `Y,BLINK`), missed at T+1 (`R,BLINK`, owner + caregivers), escalated at T+2 (urgent, caregivers). Opening at T..T+1 = taken, T+1..T+2 = late. This permanently edits that schedule. `400` if not in Care mode or no schedules.
 
 ---
 

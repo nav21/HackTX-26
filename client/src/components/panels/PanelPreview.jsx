@@ -48,7 +48,7 @@ function CarePreview({ device, onPatch, canManage }) {
     setDemoPending(false)
     const [h, m] = hhmm.split(":").map(Number)
     toast.success(`Next dose moved to ${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}.`, {
-      description: "Reminder in about a minute.",
+      description: "Reminder sent. Missed in about a minute if the box stays shut.",
     })
   }
 

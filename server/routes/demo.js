@@ -11,7 +11,7 @@ import { withDeviceLock } from '../engine/index.js';
 const router = Router();
 router.use(requireUser);
 
-// Next active dose → ~1 min from now, 1-min grace + escalation (see engine/care.js scheduleNow).
+// Next active dose → due now (reminder sent immediately), 1-min grace + 1-min escalation (see engine/care.js scheduleNow).
 router.post(
   '/schedule-now/:deviceId',
   validate({ params: deviceIdParams }),
