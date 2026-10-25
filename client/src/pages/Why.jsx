@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils"
 
 /*
  * The "Why" page: the stories behind the three modes.
- * Photos are placeholders for now. To use a real one, drop it in client/public/why/
- * and set `src` below (e.g. "/why/grandma.jpg").
+ * Photos live in client/public/why/. fit "cover" fills the frame; "contain" shows a
+ * product shot whole on a white card. A story with no src shows a placeholder.
  */
 const STORIES = [
   {
@@ -17,7 +17,7 @@ const STORIES = [
     icon: Pill,
     mode: "Care",
     title: "Did Grandma take her pills?",
-    photo: { src: null, alt: "A grandmother at her kitchen table with a weekly pill organizer" },
+    photo: { src: "/why/grandma.webp", alt: "A grandmother holding a bottle of pills", fit: "cover" },
     body: [
       "Our grandmothers take medicine every day, and none of us could ever really tell whether they had. A call that went unanswered turned into worry. Asking “did you take your pills?” felt like nagging, and the answer was usually “I think so.”",
       "Nobody had a clear picture, so everyone was stressed for no reason: them for being checked on, us for not knowing. TSWIFT lets the pillbox answer instead. Taken, late, or missed, the family just knows.",
@@ -28,7 +28,7 @@ const STORIES = [
     icon: Dumbbell,
     mode: "Habit",
     title: "Did I already take my creatine?",
-    photo: { src: null, alt: "A tub of creatine with a scoop on a kitchen counter" },
+    photo: { src: "/why/creatine.webp", alt: "A tub of creatine", fit: "contain" },
     body: [
       "Creatine only works if you take it every day, and it's easy to lose track of whether you already did. Opening the tub counts the day, your streak keeps going, and your friends see you showed up.",
     ],
@@ -38,21 +38,25 @@ const STORIES = [
     icon: Lock,
     mode: "Security",
     title: "Has anyone been in my things?",
-    photo: { src: null, alt: "A small lockbox inside an open backpack" },
+    photo: { src: "/why/backpack.webp", alt: "An unzipped yellow backpack", fit: "contain" },
     body: [
-      "Some things you just want to know about. Arm the lockbox or backpack, and if it opens, your laptop and phone sound the alarm right away.",
+      "Some things you just want to know about. Arm your backpack or lockbox, and if it opens, your laptop and phone sound the alarm right away.",
     ],
   },
 ]
 
-function Photo({ src, alt, icon: Icon, className }) {
+function Photo({ src, alt, fit = "cover", icon: Icon, className }) {
   if (src) {
     return (
       <img
         src={src}
         alt={alt}
         loading="lazy"
-        className={cn("aspect-[3/2] w-full rounded-card object-cover ring-1 ring-line", className)}
+        className={cn(
+          "aspect-[3/2] w-full rounded-card ring-1 ring-line",
+          fit === "contain" ? "bg-white object-contain p-6 sm:p-8" : "object-cover",
+          className
+        )}
       />
     )
   }
