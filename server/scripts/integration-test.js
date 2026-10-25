@@ -286,6 +286,15 @@ async function liveDeviceTests(userId) {
   await ingestBatch(board.id, [{ type: 'HB', seq: 6 }]);
   check('HB keeps the live device seen', Date.now() - new Date((await fresh(live.id)).last_seen_at).getTime() < 60_000);
 
+  // Devices you're not viewing stay Online too (no "offline" pop-ups after switching away), but only ones you own.
+  const other = await tempDevice(userId, { name: 'IT Other', mode: 'security' });
+  const old = new Date(Date.now() - 600_000).toISOString();
+  await one(supabase.from('devices').update({ last_seen_at: old, offline_since: old }).in('id', [other.id, shared.id]));
+  await ingestBatch(board.id, [{ type: 'HB', seq: 6, at: new Date().toISOString() }]);
+  const o = await fresh(other.id);
+  check('HB keeps the owner’s other devices seen', !o.offline_since && Date.now() - new Date(o.last_seen_at).getTime() < 60_000 && (await types(other.id)).includes('online'), o);
+  check("HB leaves a device you don't own alone", (await fresh(shared.id)).offline_since === old || !!(await fresh(shared.id)).offline_since);
+
   await setLive(shared.id); // not the owner of that one → ignored
   await ingestBatch(board.id, [{ type: 'OPEN', seq: 7 }]);
   check('live device not owned → stays on the board', count(await types(board.id), 'opened') === 2 && !(await types(shared.id)).includes('opened'));

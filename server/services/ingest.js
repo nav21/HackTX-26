@@ -67,6 +67,20 @@ export async function liveTarget(boardId) {
   return owns.length ? liveId : null;
 }
 
+/** The other devices owned by this board's owner (rows), which the board can drive. */
+async function ownedSiblings(boardId) {
+  const owner = must(
+    await supabase.from('device_members').select('user_id').eq('device_id', boardId).eq('role', 'owner').limit(1)
+  )[0];
+  if (!owner) return [];
+  const ids = must(
+    await supabase.from('device_members').select('device_id').eq('user_id', owner.user_id).eq('role', 'owner')
+  )
+    .map((r) => r.device_id)
+    .filter((id) => id !== boardId);
+  return ids.length ? must(await supabase.from('devices').select('*').in('id', ids)) : [];
+}
+
 // Runs fn(fresh live device row) under that device's lock, like the simulator and ticks do.
 // (Nested inside the board's lock; a deadlock would need two boards relaying to each other at once,
 // which one live_device_id per owner rules out outside a switch race.)
@@ -92,7 +106,13 @@ export async function ingestBatch(deviceId, events, now = new Date()) {
   await markSeen(device, now); // first, so a comeback's `online` event precedes this batch
   // One board, many devices: lid events go to the device the owner is viewing (dedupe stays on the board).
   const liveId = await liveTarget(deviceId);
-  if (liveId) await withLive(liveId, (live) => markSeen(live, now)); // the viewed device shows Online
+  // The board can drive any device its owner has, so while it's connected they all count as Online.
+  // Otherwise the ones you're not viewing go offline a minute after you switch away, and notify.
+  // (Only a comeback appends an event, so only then take that device's lock.)
+  for (const sibling of await ownedSiblings(deviceId)) {
+    if (sibling.offline_since) await withLive(sibling.id, (fresh) => markSeen(fresh, now));
+    else await markSeen(sibling, now);
+  }
   let accepted = 0;
   let duplicates = 0;
 
