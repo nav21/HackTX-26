@@ -5,10 +5,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { EmptyState, ErrorState, PanelCard, PanelHeader } from "@/components/care/states"
 import { shiftDate, shortDate, todayKey, weekdayOf } from "@/components/care/scheduleUtils"
 
-const ROW_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""]
+// Columns are weekdays, Sunday first (weekdayOf: 0 = Sunday), like the Care calendar.
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
 function Cell({ cell }) {
-  if (cell.kind === "pad") return <span className="size-7" aria-hidden />
+  if (cell.kind === "pad") return <span className="h-7 w-full" aria-hidden />
   const done = cell.kind === "done"
   const future = cell.kind === "future"
   const label = cell.isToday ? "Today" : shortDate(cell.date)
@@ -20,7 +21,7 @@ function Cell({ cell }) {
           type="button"
           aria-label={`${label}: ${verdict}`}
           className={cn(
-            "size-7 cursor-default rounded-sm outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent",
+            "h-7 w-full cursor-default rounded-sm outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent",
             done && "bg-accent/70",
             !done && !future && "bg-raised",
             future && "border border-dashed border-line",
@@ -36,7 +37,7 @@ function Cell({ cell }) {
 }
 
 /**
- * 30-day habit grid, GitHub-style (columns are weeks, rows are weekdays).
+ * 30-day habit calendar: weekdays across, one row per week (reads like the Care calendar).
  *
  * Props
  * - history: [{ date: "YYYY-MM-DD", done: boolean }] oldest first (GET /devices/:id/streak?days=30)
@@ -81,7 +82,7 @@ export default function ConsistencyGrid({
 
   let body
   if (loading) {
-    body = <Skeleton className="h-56 w-full max-w-64 rounded-inner" aria-busy="true" aria-label="Loading history" />
+    body = <Skeleton className="h-44 w-full rounded-inner" aria-busy="true" aria-label="Loading history" />
   } else if (error) {
     body = <ErrorState message={error} onRetry={onRetry} />
   } else if (!total) {
@@ -95,19 +96,15 @@ export default function ConsistencyGrid({
   } else {
     body = (
       <TooltipProvider delayDuration={150}>
-        <div className="flex gap-2">
-          <div className="grid grid-rows-7 gap-1.5" aria-hidden>
-            {ROW_LABELS.map((l, i) => (
-              <span key={i} className="flex h-7 items-center text-xs text-faint">
+        <div className="flex flex-col gap-1.5">
+          <div className="grid grid-cols-7 gap-1.5" aria-hidden>
+            {WEEKDAYS.map((l) => (
+              <span key={l} className="text-center text-xs text-faint">
                 {l}
               </span>
             ))}
           </div>
-          <div
-            className="grid grid-flow-col grid-rows-7 gap-1.5"
-            role="group"
-            aria-label={`Last ${total} days: ${doneCount} done`}
-          >
+          <div className="grid grid-cols-7 gap-1.5" role="group" aria-label={`Last ${total} days: ${doneCount} done`}>
             {cells.map((c) => (
               <Cell key={c.key} cell={c} />
             ))}

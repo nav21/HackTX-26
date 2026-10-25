@@ -113,9 +113,7 @@ function FullPage({ now }) {
           device={shown}
           now={now}
           canManage={role === "owner"}
-          onModeChange={(mode) => setDevice((d) => withMode(d, mode))}
           onOpenSettings={() => {}}
-          simulatorTo="#full-h"
           backTo="#full-h"
           verifyBadge={<VerifiedBadgeView result={{ valid: true, checked: allEvents.length + 117 }} onVerify={() => {}} />}
           timeline={{ events: allEvents }}
