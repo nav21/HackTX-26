@@ -93,11 +93,11 @@ function TodayHeader({ device, canManage, onEditPerson, demo }) {
       <div className="min-w-0">{who}</div>
       {showDemo ? (
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           onClick={demo.onClick}
           disabled={demo.pending}
-          className="-mr-2 text-subtle"
+          className="border-accent/50 bg-accent/10 text-accent hover:border-accent hover:bg-accent/20"
           title="Moves the next dose to about a minute from now"
         >
           {demo.pending ? <LoaderCircle className="animate-spin" aria-hidden /> : <Timer aria-hidden />}
