@@ -13,27 +13,14 @@ export function GroupSkeleton() {
         </div>
         <Skeleton className="h-16 w-full rounded-card sm:w-64" />
       </div>
-      <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_var(--bws-rail-width)]">
-        <div className="flex flex-col gap-6">
-          <div className="rounded-card bg-surface p-6 ring-1 ring-line sm:p-8">
-            <Skeleton className="h-5 w-40" />
-            <Skeleton className="mt-2 h-4 w-56" />
-            <div className="mt-8 flex gap-6">
-              {[0, 1, 2, 3].map((i) => (
-                <Skeleton key={i} className="size-14 rounded-pill" />
-              ))}
-            </div>
-          </div>
-          <div className="rounded-card bg-surface p-6 ring-1 ring-line sm:p-8">
-            <Skeleton className="h-5 w-20" />
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="mt-6 flex gap-3">
-                <Skeleton className="size-8 rounded-pill" />
-                <div className="flex-1">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="mt-2 h-3 w-16" />
-                </div>
-              </div>
+      {/* Same layout as the loaded page: who's done today + leaderboard (no feed). */}
+      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_var(--bws-rail-width)]">
+        <div className="rounded-card bg-surface p-6 ring-1 ring-line sm:p-8">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="mt-2 h-4 w-56" />
+          <div className="mt-8 flex gap-6">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="size-14 rounded-pill" />
             ))}
           </div>
         </div>
