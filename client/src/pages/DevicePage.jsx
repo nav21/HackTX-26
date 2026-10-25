@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ChevronLeft } from "lucide-react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
@@ -14,7 +14,7 @@ import { useNow } from "@/hooks/useNow"
 import { shouldAskForNotifications } from "@/lib/browserNotifications"
 import { errorMessage } from "@/lib/errors"
 import { MODES } from "@/lib/modes"
-import { useDevice, useEvents, useUpdateDevice } from "@/lib/queries"
+import { useDevice, useEvents, useMe, useSetLiveDevice, useUpdateDevice } from "@/lib/queries"
 
 export function DeviceViewSkeleton() {
   return (
@@ -54,6 +54,17 @@ export default function DevicePage() {
   useEffect(() => {
     if (location.state?.justClaimed) navigate(location.pathname, { replace: true, state: null })
   }, [location.state, location.pathname, navigate])
+
+  // The owner's one physical box drives whichever device they have open (server relays its events).
+  const me = useMe()
+  const { mutate: setLiveDevice } = useSetLiveDevice()
+  const isOwner = q.data?.role === "owner"
+  const liveSentFor = useRef(null)
+  useEffect(() => {
+    if (!isOwner || !id || liveSentFor.current === id) return
+    liveSentFor.current = id
+    setLiveDevice(id, { onError: (err) => console.warn("Couldn't point the real box at this device", err) })
+  }, [id, isOwner, setLiveDevice])
 
   if (q.isLoading) return <DeviceViewSkeleton />
 
@@ -98,6 +109,7 @@ export default function DevicePage() {
         onModeChange={changeMode}
         onOpenSettings={() => setSettingsOpen(true)}
         simulatorTo={`/simulator/${device.id}`}
+        liveHere={canManage && me.data?.live_device_id === device.id}
         verifyBadge={<VerifiedBadge deviceId={device.id} />}
         timeline={{
           events: ev.data?.events ?? [],

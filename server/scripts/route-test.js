@@ -1,6 +1,7 @@
 // HTTP-level test of the user routes, in-process, against the live DB. Auth is stubbed: getClaims
 // returns an existing profile (no tokens or passwords involved). Creates a temp device + group and
-// deletes them afterwards. Doesn't touch the profile's other data (PATCH /me re-sends current values).
+// deletes them afterwards. Doesn't touch the profile's other data (PATCH /me re-sends current values;
+// live_device_id is put back at the end).
 // Usage (from /server): npm run test:routes [-- --user <profile id>]
 import 'dotenv/config';
 import { parseArgs } from 'node:util';
@@ -12,6 +13,7 @@ process.env.DEMO_MODE = 'true';
 const { supabase } = await import('../supabase.js');
 const { app } = await import('../app.js');
 const { drainAi } = await import('../engine/execute.js');
+const { hashSecret } = await import('../middleware/deviceAuth.js');
 
 const { values: args } = parseArgs({ options: { user: { type: 'string' } } });
 const profile = args.user
@@ -67,6 +69,45 @@ try {
   r = await call('POST', '/devices/claim', { pairing_code: code, name: 'RT Pills', mode: 'care', container_type: 'pillbox' });
   check('claim → 201 DeviceDetail', r.status === 201 && r.body.role === 'owner' && r.body.pairing_code === code && Array.isArray(r.body.members), r);
   check('claim again → 409', (await call('POST', '/devices/claim', { pairing_code: code, name: 'x', mode: 'care', container_type: 'other' })).status === 409);
+  // ---- live device (which device the physical board drives)
+  r = await call('PATCH', '/me', { live_device_id: raw.id });
+  check('PATCH /me live_device_id (owner)', r.status === 200 && r.body.live_device_id === raw.id, r);
+  check('GET /me returns live_device_id', (await call('GET', '/me')).body.live_device_id === raw.id);
+  r = await call('PATCH', '/me', { live_device_id: '00000000-0000-4000-8000-000000000000' });
+  check('live_device_id unknown → 404', r.status === 404 && r.body.error.code === 'not_found', r);
+  check('live_device_id not a uuid → 400', (await call('PATCH', '/me', { live_device_id: 'nope' })).status === 400);
+  const { data: other, error: otherErr } = await supabase
+    .from('devices')
+    .insert({ name: 'RT Shared', pairing_code: String(randomInt(1000, 10000)), secret_hash: 'sha256:route-test', claimed_at: new Date().toISOString() })
+    .select()
+    .single();
+  if (otherErr) throw new Error(otherErr.message);
+  cleanup.devices.push(other.id);
+  await supabase.from('device_members').insert({ device_id: other.id, user_id: profile.id, role: 'caregiver' });
+  r = await call('PATCH', '/me', { live_device_id: other.id });
+  check('live_device_id as caregiver → 403', r.status === 403 && r.body.error.code === 'forbidden', r);
+  check('live_device_id unchanged after 403', (await call('GET', '/me')).body.live_device_id === raw.id);
+
+  // The board (its own device + secret) posts an OPEN → it lands on the live device (raw).
+  const boardSecret = 'route-test-board-secret';
+  const { data: board, error: boardErr } = await supabase
+    .from('devices')
+    .insert({ name: 'RT Board', pairing_code: String(randomInt(1000, 10000)), secret_hash: hashSecret(boardSecret), claimed_at: new Date().toISOString() })
+    .select()
+    .single();
+  if (boardErr) throw new Error(boardErr.message);
+  cleanup.devices.push(board.id);
+  await supabase.from('device_members').insert({ device_id: board.id, user_id: profile.id, role: 'owner' });
+  const res = await fetch(`${base}/device/events`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Device-Id': board.id, 'X-Device-Secret': boardSecret },
+    body: JSON.stringify({ events: [{ type: 'OPEN', seq: 1 }, { type: 'CLOSE', seq: 2 }] }),
+  });
+  r = { status: res.status, body: await res.json() };
+  check('POST /device/events → 200 accepted 2', r.status === 200 && r.body.accepted === 2, r);
+  const lidOn = async (id) => (await supabase.from('events').select('type').eq('device_id', id).in('type', ['opened', 'closed'])).data.length;
+  check('board events recorded on the live device', (await lidOn(raw.id)) === 2 && (await lidOn(board.id)) === 0, { live: await lidOn(raw.id), board: await lidOn(board.id) });
+
   r = await call('GET', '/devices');
   check('GET /devices lists it with today', r.body.some((d) => d.id === raw.id && d.today && 'next_dose' in d.today), r.body);
   check('GET unknown device → 404', (await call('GET', '/devices/00000000-0000-4000-8000-000000000000')).status === 404);
@@ -159,11 +200,14 @@ try {
   check('then GET → 404', (await call('GET', D)).status === 404);
   const after = (await supabase.from('devices').select('claimed_at, mode, name').eq('id', raw.id).single()).data;
   check('device reset + claimable again', after.claimed_at === null && after.mode === 'care' && after.name === 'BWS', after);
+  check('unclaim clears live_device_id', (await call('GET', '/me')).body.live_device_id === null);
 } catch (err) {
   failures++;
   console.error('FAILED:', err);
 } finally {
   await drainAi();
+  // Put back whatever device the real board was driving before the test.
+  await supabase.from('profiles').update({ live_device_id: profile.live_device_id ?? null }).eq('id', profile.id);
   if (cleanup.devices.length) await supabase.from('devices').delete().in('id', cleanup.devices);
   if (cleanup.groups.length) await supabase.from('groups').delete().in('id', cleanup.groups);
   server.close();

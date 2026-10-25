@@ -21,6 +21,7 @@ export const memberParams = z.object({ id: uuid, userId: uuid });
 export const patchMe = z.object({
   display_name: z.string().trim().min(1).max(50).optional(),
   timezone: timezone.optional(),
+  live_device_id: uuid.nullable().optional(), // device the owner's physical board drives (must own it)
 });
 
 export const claimDevice = z.object({

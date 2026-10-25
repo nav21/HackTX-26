@@ -15,8 +15,9 @@
  *                  pass a *PanelView with sample data here
  *  In Security mode the rail shows the access log instead of the timeline.
  *  backTo          link for "Devices"
+ *  liveHere        the owner's physical box currently drives this device (me.live_device_id)
  */
-import { ChevronLeft, MonitorSmartphone, Settings2 } from "lucide-react"
+import { ChevronLeft, MonitorSmartphone, Radio, Settings2 } from "lucide-react"
 import { Link } from "react-router-dom"
 import ContainerTile from "@/components/device/ContainerTile"
 import EventTimeline from "@/components/device/EventTimeline"
@@ -43,6 +44,7 @@ export default function DeviceView({
   panel,
   backTo = "/app",
   simulatorTo,
+  liveHere = false,
   className,
 }) {
   const status = deriveStatus(device, now)
@@ -66,6 +68,15 @@ export default function DeviceView({
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
               <LidIndicator state={device.lid_state} />
               <StatusPill status={status} lastSeenAt={device.last_seen_at} now={now} />
+              {liveHere ? (
+                <span
+                  className="inline-flex h-6 shrink-0 items-center gap-1.5 rounded-pill bg-accent/12 px-2.5 text-xs font-medium text-accent ring-1 ring-accent/20 ring-inset"
+                  title="Opening your physical box counts for this device while you have it open."
+                >
+                  <Radio className="size-3.5" aria-hidden />
+                  Real box live here
+                </span>
+              ) : null}
               {device.role && device.role !== "owner" ? (
                 <span className="text-sm text-subtle">You're a {ROLES[device.role]?.label.toLowerCase()}</span>
               ) : null}

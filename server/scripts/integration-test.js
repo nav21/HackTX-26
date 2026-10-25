@@ -11,7 +11,7 @@ import * as engine from '../engine/index.js';
 import * as care from '../engine/care.js';
 import * as habit from '../engine/habit.js';
 import * as security from '../engine/security.js';
-import { recordLid } from '../services/ingest.js';
+import { ingestBatch, recordLid } from '../services/ingest.js';
 import { drainAi } from '../engine/execute.js';
 import { verifyChain } from '../engine/events.js';
 import { buildDetail } from '../services/devices.js';
@@ -249,6 +249,51 @@ async function securityTests(userId) {
   check('mode switch → mode_changed', (await types(s.id)).includes('mode_changed'));
 }
 
+// One physical board (B) drives whichever device the owner has open (profiles.live_device_id).
+async function liveDeviceTests(userId) {
+  console.log('\nLive device routing');
+  const setLive = (id) => one(supabase.from('profiles').update({ live_device_id: id }).eq('id', userId));
+  const board = await tempDevice(userId, { name: 'IT Board', mode: 'care' });
+  const live = await tempDevice(userId, { name: 'IT Live Creatine', mode: 'habit', habit_action: 'took creatine' });
+  const shared = await tempDevice(userId, { name: 'IT Shared', mode: 'habit', role: 'caregiver' });
+
+  await setLive(null);
+  let r = await ingestBatch(board.id, [{ type: 'OPEN', seq: 1 }, { type: 'CLOSE', seq: 2 }]);
+  check('no live device → events on the board', r.accepted === 2 && count(await types(board.id), 'opened') === 1, { r, t: await types(board.id) });
+
+  await setLive(live.id);
+  await one(supabase.from('devices').update({ offline_since: new Date(Date.now() - 120_000).toISOString() }).eq('id', live.id));
+  r = await ingestBatch(board.id, [{ type: 'OPEN', seq: 3, ldr: 900 }, { type: 'CLOSE', seq: 4 }, { type: 'HB', seq: 5 }]);
+  await drainAi();
+  const liveTypes = await types(live.id);
+  const b = await fresh(board.id);
+  const l = await fresh(live.id);
+  check('live set → accepted 3', r.accepted === 3 && r.duplicates === 0, r);
+  check('opened/closed recorded on the live device', count(liveTypes, 'opened') === 1 && count(liveTypes, 'closed') === 1, liveTypes);
+  check("live device's mode rules ran (habit_done)", liveTypes.includes('habit_done'), liveTypes);
+  check('board got no new lid events', count(await types(board.id), 'opened') === 1, await types(board.id));
+  check('seq counter stays on the board', b.last_seq === 5 && l.last_seq === null, { board: b.last_seq, live: l.last_seq });
+  check('live device marked seen + online event', l.last_seen_at && !l.offline_since && liveTypes.includes('online'), { seen: l.last_seen_at, off: l.offline_since, liveTypes });
+  check('live lid_state follows the box', l.lid_state === 'closed', l.lid_state);
+  const [opened] = await one(supabase.from('events').select('payload, seq, source').eq('device_id', live.id).eq('type', 'opened'));
+  check('relayed event notes the board', opened.payload.via_device_id === board.id && opened.payload.ldr === 900 && opened.source === 'device', opened);
+
+  r = await ingestBatch(board.id, [{ type: 'OPEN', seq: 3 }]);
+  check('bridge retry is a duplicate on the board', r.duplicates === 1 && count(await types(live.id), 'opened') === 1, r);
+
+  await one(supabase.from('devices').update({ last_seen_at: new Date(Date.now() - 600_000).toISOString() }).eq('id', live.id));
+  await ingestBatch(board.id, [{ type: 'HB', seq: 6 }]);
+  check('HB keeps the live device seen', Date.now() - new Date((await fresh(live.id)).last_seen_at).getTime() < 60_000);
+
+  await setLive(shared.id); // not the owner of that one → ignored
+  await ingestBatch(board.id, [{ type: 'OPEN', seq: 7 }]);
+  check('live device not owned → stays on the board', count(await types(board.id), 'opened') === 2 && !(await types(shared.id)).includes('opened'));
+
+  await setLive(board.id);
+  await ingestBatch(board.id, [{ type: 'CLOSE', seq: 8 }]);
+  check('live = board → normal', count(await types(board.id), 'closed') === 2);
+}
+
 async function leaseTests() {
   console.log('\nScheduler lease');
   const claim = async (h) => (await supabase.rpc('claim_scheduler_lease', { p_holder: h, p_ttl_seconds: 30 })).data;
@@ -263,13 +308,17 @@ async function leaseTests() {
 
 // ---------------------------------------------------------------------------------------------
 
+let restoreLive; // the profile's live_device_id before the test (put back in finally)
 try {
   const userId = args.user ?? (await one(supabase.from('profiles').select('id').order('created_at').limit(1)))[0]?.id;
   if (!userId) throw new Error('No profile to use as owner (sign up once in the app)');
   console.log(`Using profile ${userId.slice(0, 8)}… as owner · MOCK_AI=${process.env.MOCK_AI ?? ''}`);
+  const { live_device_id } = await one(supabase.from('profiles').select('live_device_id').eq('id', userId).single());
+  restoreLive = () => one(supabase.from('profiles').update({ live_device_id }).eq('id', userId));
   await careTests(userId);
   await habitTests(userId);
   await securityTests(userId);
+  await liveDeviceTests(userId);
   await leaseTests();
 
   console.log('\nHash chains');
@@ -282,6 +331,7 @@ try {
   console.error('\nFAILED:', err);
 } finally {
   await drainAi();
+  if (restoreLive) await restoreLive().catch((err) => console.error('Could not restore live_device_id:', err.message));
   if (!args.keep) {
     if (created.devices.length) await supabase.from('devices').delete().in('id', created.devices);
     if (created.groups.length) await supabase.from('groups').delete().in('id', created.groups);

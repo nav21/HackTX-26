@@ -355,6 +355,18 @@ export function useUpdateMe() {
   })
 }
 
+/**
+ * PATCH /api/me { live_device_id } — the owner's physical box now drives this device.
+ * Only touches the cached `me` (useUpdateMe also refetches member lists and groups).
+ */
+export function useSetLiveDevice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (deviceId) => api.patch("/api/me", { live_device_id: deviceId }).then((r) => r.data),
+    onSuccess: (me) => qc.setQueryData(keys.me, (old) => ({ ...(old ?? {}), ...(me ?? {}) })),
+  })
+}
+
 /** True when the name looks unset: empty, or just the email's local part. */
 export function needsName(me) {
   if (!me) return false

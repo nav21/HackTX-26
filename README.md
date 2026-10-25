@@ -41,6 +41,7 @@ From `/server`:
 npm run db:migrate                 # apply supabase/schema.sql to DATABASE_URL (one transaction, idempotent) + print RLS/publication summary
 npm run db:migrate -- --check      # summary only
 npm run create-device -- --name "Demo Box"   # new unclaimed device; prints DEVICE_ID / DEVICE_SECRET / pairing code for bridge/.env
+npm run device:rotate-secret -- --name "Grandma's pillbox" --owner you@example.com   # (or --device <id>) new secret for an existing device
 npm run verify-chain -- <deviceId> # latest events + hash-chain check (service role)
 npm test                           # unit tests (hash chain, zod, engine/logic, AI features); no DB or network
 npm run test:integration           # drives Care/Habit/Security against the live DB with temp devices, then deletes them

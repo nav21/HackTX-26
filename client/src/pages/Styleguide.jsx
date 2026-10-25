@@ -649,6 +649,7 @@ function DevicePageSection({ now }) {
       panel={<PanelPreview device={device} onPatch={(p) => setDevice((d) => ({ ...d, ...p }))} events={events} now={now} />}
       onOpenSettings={() => {}}
       simulatorTo="#simulator"
+      liveHere
       backTo="#device-page"
       verifyBadge={<VerifiedBadgeView result={{ valid: true, checked: events.length + 117 }} onVerify={() => {}} />}
       timeline={{ events }}

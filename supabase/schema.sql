@@ -142,6 +142,11 @@ create index if not exists device_members_user_idx on public.device_members (use
 create unique index if not exists device_members_one_owner on public.device_members (device_id) where role = 'owner';
 alter table public.device_members enable row level security;
 
+-- The device the owner is currently viewing. A physical board's lid events are recorded on this
+-- device instead of the board's own (services/ingest.js), so one board can demo every device.
+-- Server-written only (PATCH /api/me checks ownership), so it's not in the client column grant above.
+alter table public.profiles add column if not exists live_device_id uuid references public.devices (id) on delete set null;
+
 
 -- -------------------------------------------------------------
 -- RLS helpers (security definer avoids policy recursion on device_members)

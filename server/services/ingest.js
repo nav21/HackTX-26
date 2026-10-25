@@ -2,7 +2,7 @@
 import { supabase } from '../supabase.js';
 import { must } from '../lib/errors.js';
 import { appendEvent } from '../engine/events.js';
-import { handleEvent, markSeen } from '../engine/index.js';
+import { handleEvent, markSeen, withDeviceLock } from '../engine/index.js';
 
 const MAX_FUTURE_MS = 5 * 60_000;
 const LID = { OPEN: { type: 'opened', lid_state: 'open' }, CLOSE: { type: 'closed', lid_state: 'closed' } };
@@ -12,16 +12,22 @@ async function updateDevice(device, patch) {
   Object.assign(device, patch);
 }
 
-/** Appends `opened`/`closed`, updates lid_state, runs the engine. → Event DTO */
-export async function recordLid(device, { type, source, seq = null, occurredAt = new Date(), ldr }) {
+/**
+ * Appends `opened`/`closed`, updates lid_state, runs the engine. → Event DTO
+ * `via` = id of the physical board when its event is relayed to another device (see liveTarget).
+ */
+export async function recordLid(device, { type, source, seq = null, occurredAt = new Date(), ldr, via }) {
   const { type: eventType, lid_state } = LID[type];
+  const payload = {};
+  if (ldr !== undefined) payload.ldr = ldr;
+  if (via) payload.via_device_id = via;
   const event = await appendEvent({
     deviceId: device.id,
     type: eventType,
     source,
     seq,
     occurredAt,
-    payload: ldr === undefined ? {} : { ldr },
+    payload,
   });
   await updateDevice(device, { lid_state });
   try {
@@ -32,6 +38,40 @@ export async function recordLid(device, { type, source, seq = null, occurredAt =
   }
   return event;
 }
+
+/**
+ * Where a board's lid events should be recorded instead of on the board itself: its owner's
+ * profiles.live_device_id (set when they open a device page), if that's another device they own.
+ * → device id, or null to record on the board as usual (unclaimed board, nothing set, or stale).
+ */
+export async function liveTarget(boardId) {
+  const owner = must(
+    await supabase
+      .from('device_members')
+      .select('user_id, profiles(live_device_id)')
+      .eq('device_id', boardId)
+      .eq('role', 'owner')
+      .limit(1)
+  )[0];
+  const liveId = owner?.profiles?.live_device_id;
+  if (!liveId || liveId === boardId) return null;
+  const owns = must(
+    await supabase
+      .from('device_members')
+      .select('device_id')
+      .eq('device_id', liveId)
+      .eq('user_id', owner.user_id)
+      .eq('role', 'owner')
+      .limit(1)
+  );
+  return owns.length ? liveId : null;
+}
+
+// Runs fn(fresh live device row) under that device's lock, like the simulator and ticks do.
+// (Nested inside the board's lock; a deadlock would need two boards relaying to each other at once,
+// which one live_device_id per owner rules out outside a switch race.)
+const withLive = (liveId, fn) =>
+  withDeviceLock(liveId, async () => fn(must(await supabase.from('devices').select('*').eq('id', liveId).single())));
 
 // Bridge `at` (when it read the line) or now; clamp clocks that run ahead.
 function eventTime(at, now) {
@@ -50,6 +90,9 @@ function eventTime(at, now) {
 export async function ingestBatch(deviceId, events, now = new Date()) {
   const device = must(await supabase.from('devices').select('*').eq('id', deviceId).single());
   await markSeen(device, now); // first, so a comeback's `online` event precedes this batch
+  // One board, many devices: lid events go to the device the owner is viewing (dedupe stays on the board).
+  const liveId = await liveTarget(deviceId);
+  if (liveId) await withLive(liveId, (live) => markSeen(live, now)); // the viewed device shows Online
   let accepted = 0;
   let duplicates = 0;
 
@@ -88,7 +131,9 @@ export async function ingestBatch(deviceId, events, now = new Date()) {
     }
 
     if (ev.type === 'OPEN' || ev.type === 'CLOSE') {
-      await recordLid(device, { type: ev.type, source: 'device', seq, occurredAt: at, ldr: ev.ldr });
+      const lid = { type: ev.type, source: 'device', seq, occurredAt: at, ldr: ev.ldr };
+      if (liveId) await withLive(liveId, (live) => recordLid(live, { ...lid, via: deviceId }));
+      else await recordLid(device, lid);
     }
     // HB: no event row; it only counts toward last_seq and last_seen_at.
     if (seq !== null) await updateDevice(device, { last_seq: seq, last_seq_at: at.toISOString() });
